@@ -3,7 +3,6 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,7 +18,7 @@ import { TemperatureUnit } from './src/utils/temperature';
 import { getWeatherTheme } from './src/utils/weatherTheme';
 
 export default function App() {
-  const { weather, loading, refreshing, error, refresh, selectLocation, useCurrentLocation } =
+  const { weather, loading, error, refresh, selectLocation, useCurrentLocation } =
     useWeather();
   const [unit, setUnit] = useState<TemperatureUnit>('F');
   const [locationModalVisible, setLocationModalVisible] = useState(false);
@@ -56,15 +55,6 @@ export default function App() {
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={refresh}
-                tintColor={theme.text}
-                colors={[theme.text]}
-                progressBackgroundColor={theme.cardBackground}
-              />
-            }
           >
             <Text style={[styles.header, { color: theme.text }]}>Weather Alerts</Text>
             <TodayCard

@@ -17,7 +17,6 @@ const DEFAULT_LOCATION = {
 interface UseWeatherResult {
   weather: WeatherData | null;
   loading: boolean;
-  refreshing: boolean;
   error: string | null;
   locationSource: LocationSource;
   refresh: () => Promise<void>;
@@ -57,19 +56,14 @@ async function resolveGpsLocation(): Promise<{
 export function useWeather(): UseWeatherResult {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locationSource, setLocationSource] = useState<LocationSource>({ type: 'gps' });
   const locationSourceRef = useRef<LocationSource>({ type: 'gps' });
 
-  const loadWeather = useCallback(async (isRefresh = false) => {
+  const loadWeather = useCallback(async () => {
     const activeSource = locationSourceRef.current;
 
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+    setLoading(true);
     setError(null);
 
     try {
@@ -94,7 +88,6 @@ export function useWeather(): UseWeatherResult {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
@@ -102,7 +95,7 @@ export function useWeather(): UseWeatherResult {
     loadWeather();
   }, [loadWeather]);
 
-  const refresh = useCallback(() => loadWeather(true), [loadWeather]);
+  const refresh = useCallback(() => loadWeather(), [loadWeather]);
 
   const selectLocation = useCallback(
     async (location: LocationResult) => {
@@ -114,7 +107,7 @@ export function useWeather(): UseWeatherResult {
       };
       locationSourceRef.current = manualSource;
       setLocationSource(manualSource);
-      await loadWeather(false);
+      await loadWeather();
     },
     [loadWeather]
   );
@@ -123,13 +116,12 @@ export function useWeather(): UseWeatherResult {
     const gpsSource: LocationSource = { type: 'gps' };
     locationSourceRef.current = gpsSource;
     setLocationSource(gpsSource);
-    await loadWeather(false);
+    await loadWeather();
   }, [loadWeather]);
 
   return {
     weather,
     loading,
-    refreshing,
     error,
     locationSource,
     refresh,
