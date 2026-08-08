@@ -21,9 +21,13 @@
   },
   "scripts": {
     "start": "expo start",
+    "start:clear": "expo start --clear",
     "android": "expo run:android",
+    "android:device": "expo run:android --device",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "ios:device": "expo run:ios --device",
+    "prebuild": "expo prebuild",
+    "prebuild:clean": "expo prebuild --clean"
   },
   "private": true
 }
