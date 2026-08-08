@@ -35,9 +35,7 @@
       "url": "https://u.expo.dev/37fcc02c-dd03-492c-b6be-6d747c106472",
       "fallbackToCacheTimeout": 0
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.3.0",
     "extra": {
       "eas": {
         "projectId": "37fcc02c-dd03-492c-b6be-6d747c106472"
