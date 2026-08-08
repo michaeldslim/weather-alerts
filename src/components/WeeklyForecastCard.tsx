@@ -1,0 +1,82 @@
+import { StyleSheet, Text, View } from 'react-native';
+import { DailyForecast } from '../types/weather';
+import { convertTemperature, TemperatureUnit } from '../utils/temperature';
+import { getWeatherEmoji, getWeatherTheme } from '../utils/weatherTheme';
+
+interface WeeklyForecastCardProps {
+  daily: DailyForecast[];
+  accentCondition: DailyForecast['condition'];
+  unit: TemperatureUnit;
+}
+
+export function WeeklyForecastCard({
+  daily,
+  accentCondition,
+  unit,
+}: WeeklyForecastCardProps) {
+  const theme = getWeatherTheme(accentCondition);
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
+      <Text style={[styles.title, { color: theme.text }]}>7-Day Forecast</Text>
+      {daily.map((day) => (
+        <View key={day.date} style={styles.row}>
+          <Text style={[styles.day, { color: theme.text }]}>{day.dayLabel}</Text>
+          <Text style={styles.emoji}>{getWeatherEmoji(day.condition)}</Text>
+          <View style={styles.tempGroup}>
+            <Text style={[styles.low, { color: theme.text }]}>
+              {convertTemperature(day.low, unit)}°
+            </Text>
+            <Text style={[styles.high, { color: theme.text }]}>
+              {convertTemperature(day.high, unit)}°
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  day: {
+    width: 80,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  emoji: {
+    fontSize: 24,
+  },
+  tempGroup: {
+    flexDirection: 'row',
+    gap: 10,
+    width: 72,
+    justifyContent: 'flex-end',
+  },
+  high: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  low: {
+    fontSize: 15,
+    opacity: 0.6,
+  },
+});

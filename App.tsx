@@ -1,20 +1,139 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { LocationSearchModal } from './src/components/LocationSearchModal';
+import { TodayCard } from './src/components/TodayCard';
+import { WeatherBackground } from './src/components/WeatherBackground';
+import { WeeklyForecastCard } from './src/components/WeeklyForecastCard';
+import { useWeather } from './src/hooks/useWeather';
+import { TemperatureUnit } from './src/utils/temperature';
+import { getWeatherTheme } from './src/utils/weatherTheme';
 
 export default function App() {
+  const { weather, loading, refreshing, error, refresh, selectLocation, useCurrentLocation } =
+    useWeather();
+  const [unit, setUnit] = useState<TemperatureUnit>('F');
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#4A90D9" />
+        <Text style={styles.loadingText}>Loading weather...</Text>
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
+
+  if (error || !weather) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>{error ?? 'Unable to load weather'}</Text>
+        <Pressable style={styles.retryButton} onPress={refresh}>
+          <Text style={styles.retryText}>Try Again</Text>
+        </Pressable>
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
+
+  const theme = getWeatherTheme(weather.current.condition);
+  const statusBarStyle = 'light';
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <WeatherBackground condition={weather.current.condition}>
+        <SafeAreaView style={styles.safeArea}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={refresh}
+                tintColor={theme.text}
+                colors={[theme.text]}
+                progressBackgroundColor={theme.cardBackground}
+              />
+            }
+          >
+            <Text style={[styles.header, { color: theme.text }]}>Weather Alerts</Text>
+            <TodayCard
+              locationName={weather.locationName}
+              current={weather.current}
+              unit={unit}
+              onToggleUnit={() => setUnit((prev) => (prev === 'F' ? 'C' : 'F'))}
+              onLocationPress={() => setLocationModalVisible(true)}
+            />
+            <WeeklyForecastCard
+              daily={weather.daily}
+              accentCondition={weather.current.condition}
+              unit={unit}
+            />
+          </ScrollView>
+        </SafeAreaView>
+        <LocationSearchModal
+          visible={locationModalVisible}
+          theme={theme}
+          onClose={() => setLocationModalVisible(false)}
+          onSelect={selectLocation}
+          onUseCurrentLocation={useCurrentLocation}
+        />
+        <StatusBar style={statusBarStyle} />
+      </WeatherBackground>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  header: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 20,
+  },
+  centered: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#F7FAFC',
+    padding: 24,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#4A5568',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#E53E3E',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#4A90D9',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
