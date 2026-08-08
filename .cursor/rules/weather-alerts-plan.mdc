@@ -65,7 +65,6 @@ GET https://geocoding-api.open-meteo.com/v1/search
   ?name={query}
   &count=8
   &language=en
-  &countryCode={US|KR|JP}
 ```
 
 ### API Limits (Free Tier)
@@ -91,7 +90,7 @@ type LocationSource =
 - [x] 앱 **시작 시 1회** 위치 조회 및 날씨 fetch
 - [x] **Pull-to-refresh** 시 위치·날씨 재조회 (GPS 또는 선택 도시 유지)
 - [x] 에러 화면 **Try Again** 시 재조회
-- [x] **도시 검색** — 미국(US) / 한국(KR) / 일본(JP)만 지원
+- [x] **도시 검색** — 전 세계 도시 검색 (국가 탭 없음)
 - [x] 메인 카드 위치명 탭 → 검색 모달
 - [x] **Use current location** 으로 GPS 복귀
 - [x] 검색 모달 safe area 하단 여백 (홈 인디케이터 대응)
@@ -103,11 +102,11 @@ type LocationSource =
 
 ### Key Files
 - `src/services/weatherApi.ts` — fetch and map weather API response
-- `src/services/geocodingApi.ts` — city search (US, KR, JP via `countryCode`)
+- `src/services/geocodingApi.ts` — global city search (no country filter)
 - `src/hooks/useWeather.ts` — GPS / manual `LocationSource`, loading/error/refresh
-- `src/components/LocationSearchModal.tsx` — country picker + debounced search UI
+- `src/components/LocationSearchModal.tsx` — debounced search UI
 - `src/utils/weatherCode.ts` — WMO weather code → condition mapping
-- `src/types/location.ts` — `LocationResult`, `LocationSource`, `SUPPORTED_COUNTRIES`
+- `src/types/location.ts` — `LocationResult`, `LocationSource`
 
 ---
 
@@ -190,7 +189,7 @@ interface WeatherTheme {
 - [x] Shared °F/°C toggle across both cards
 - [x] Custom app icon & display name
 - [x] Pull-to-refresh on main screen
-- [x] Manual city search (US / South Korea / Japan)
+- [x] Manual city search (global, no country tabs)
 - [x] Search modal safe area & keyboard handling
 
 ### Next Up (하나씩 진행)
@@ -219,7 +218,7 @@ npx expo prebuild --clean          # 아이콘/이름/키보드 설정 변경 �
 - [x] 7-day forecast displays correctly (emoji + low/high)
 - [x] Pull-to-refresh updates location and weather
 - [x] Tap location name opens search modal
-- [x] City search works for US / KR / JP
+- [x] City search works worldwide
 - [x] Use current location switches back to GPS
 - [x] Search modal not hidden by home indicator or keyboard
 - [ ] App icon visible on native build

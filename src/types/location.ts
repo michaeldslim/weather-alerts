@@ -1,16 +1,3 @@
-export type CountryCode = 'US' | 'KR' | 'JP';
-
-export interface SupportedCountry {
-  code: CountryCode;
-  label: string;
-}
-
-export const SUPPORTED_COUNTRIES: SupportedCountry[] = [
-  { code: 'US', label: 'United States' },
-  { code: 'KR', label: 'South Korea' },
-  { code: 'JP', label: 'Japan' },
-];
-
 export interface LocationResult {
   id: number;
   name: string;

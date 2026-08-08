@@ -1,4 +1,4 @@
-import { CountryCode, LocationResult } from '../types/location';
+import { LocationResult } from '../types/location';
 
 interface GeocodingResponse {
   results?: Array<{
@@ -11,10 +11,7 @@ interface GeocodingResponse {
   }>;
 }
 
-export async function searchCities(
-  query: string,
-  countryCode: CountryCode
-): Promise<LocationResult[]> {
+export async function searchCities(query: string): Promise<LocationResult[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) {
     return [];
@@ -24,7 +21,6 @@ export async function searchCities(
     name: trimmed,
     count: '8',
     language: 'en',
-    countryCode,
   });
 
   const response = await fetch(

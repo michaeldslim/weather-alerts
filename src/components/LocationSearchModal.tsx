@@ -14,11 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { searchCities } from '../services/geocodingApi';
-import {
-  CountryCode,
-  LocationResult,
-  SUPPORTED_COUNTRIES,
-} from '../types/location';
+import { LocationResult } from '../types/location';
 import { WeatherTheme } from '../utils/weatherTheme';
 
 interface LocationSearchModalProps {
@@ -37,7 +33,6 @@ export function LocationSearchModal({
   onUseCurrentLocation,
 }: LocationSearchModalProps) {
   const [query, setQuery] = useState('');
-  const [countryCode, setCountryCode] = useState<CountryCode>('US');
   const [results, setResults] = useState<LocationResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -60,7 +55,7 @@ export function LocationSearchModal({
       setSearching(true);
       setSearchError(null);
       try {
-        const cities = await searchCities(query, countryCode);
+        const cities = await searchCities(query);
         setResults(cities);
       } catch {
         setSearchError('Failed to search cities');
@@ -71,7 +66,7 @@ export function LocationSearchModal({
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [query, countryCode, visible]);
+  }, [query, visible]);
 
   const handleSelect = (location: LocationResult) => {
     onSelect(location);
@@ -90,8 +85,6 @@ export function LocationSearchModal({
           theme={theme}
           query={query}
           setQuery={setQuery}
-          countryCode={countryCode}
-          setCountryCode={setCountryCode}
           results={results}
           searching={searching}
           searchError={searchError}
@@ -108,8 +101,6 @@ interface LocationSearchSheetProps {
   theme: WeatherTheme;
   query: string;
   setQuery: (value: string) => void;
-  countryCode: CountryCode;
-  setCountryCode: (value: CountryCode) => void;
   results: LocationResult[];
   searching: boolean;
   searchError: string | null;
@@ -122,8 +113,6 @@ function LocationSearchSheet({
   theme,
   query,
   setQuery,
-  countryCode,
-  setCountryCode,
   results,
   searching,
   searchError,
@@ -174,30 +163,6 @@ function LocationSearchSheet({
             <Pressable onPress={onClose} hitSlop={8}>
               <Text style={[styles.close, { color: theme.text }]}>Close</Text>
             </Pressable>
-          </View>
-
-          <View style={styles.countryRow}>
-            {SUPPORTED_COUNTRIES.map((country) => {
-              const selected = country.code === countryCode;
-              return (
-                <Pressable
-                  key={country.code}
-                  onPress={() => setCountryCode(country.code)}
-                  style={[
-                    styles.countryButton,
-                    {
-                      backgroundColor: selected
-                        ? 'rgba(255, 255, 255, 0.25)'
-                        : 'rgba(0, 0, 0, 0.2)',
-                    },
-                  ]}
-                >
-                  <Text style={[styles.countryLabel, { color: theme.text }]}>
-                    {country.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
           </View>
 
           <TextInput
@@ -282,22 +247,6 @@ const styles = StyleSheet.create({
   close: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  countryRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  countryButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  countryLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   input: {
     borderWidth: 1,
