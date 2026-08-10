@@ -25,8 +25,16 @@ export interface DailyForecast {
   conditionLabel: string;
 }
 
+export interface HourlyForecast {
+  time: string;
+  hourLabel: string;
+  temperature: number;
+  condition: WeatherCondition;
+}
+
 export interface WeatherData {
   locationName: string;
   current: CurrentWeather;
+  hourly: HourlyForecast[];
   daily: DailyForecast[];
 }

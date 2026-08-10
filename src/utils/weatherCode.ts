@@ -35,3 +35,9 @@ export function formatDayLabel(dateString: string): string {
 
   return date.toLocaleDateString('en-US', { weekday: 'short' });
 }
+
+export function formatHourLabel(dateTime: string): string {
+  return new Date(dateTime).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+  });
+}

@@ -1,9 +1,12 @@
-import { WeatherData } from '../types/weather';
+import { HourlyForecast, WeatherData } from '../types/weather';
 import {
   formatDayLabel,
+  formatHourLabel,
   getConditionLabel,
   weatherCodeToCondition,
 } from '../utils/weatherCode';
+
+const HOURLY_FORECAST_COUNT = 6;
 
 interface OpenMeteoResponse {
   current: {
@@ -13,12 +16,42 @@ interface OpenMeteoResponse {
     wind_speed_10m: number;
     weather_code: number;
   };
+  hourly: {
+    time: string[];
+    temperature_2m: number[];
+    weather_code: number[];
+  };
   daily: {
     time: string[];
     weather_code: number[];
     temperature_2m_max: number[];
     temperature_2m_min: number[];
   };
+}
+
+function mapUpcomingHourlyForecasts(
+  times: string[],
+  temperatures: number[],
+  weatherCodes: number[]
+): HourlyForecast[] {
+  const now = Date.now();
+  const hourly: HourlyForecast[] = [];
+
+  for (let i = 0; i < times.length && hourly.length < HOURLY_FORECAST_COUNT; i++) {
+    if (new Date(times[i]).getTime() <= now) {
+      continue;
+    }
+
+    const condition = weatherCodeToCondition(weatherCodes[i]);
+    hourly.push({
+      time: times[i],
+      hourLabel: formatHourLabel(times[i]),
+      temperature: Math.round(temperatures[i]),
+      condition,
+    });
+  }
+
+  return hourly;
 }
 
 export async function fetchWeather(
@@ -31,6 +64,7 @@ export async function fetchWeather(
     longitude: String(longitude),
     current:
       'temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code',
+    hourly: 'temperature_2m,weather_code',
     daily: 'weather_code,temperature_2m_max,temperature_2m_min',
     temperature_unit: 'fahrenheit',
     wind_speed_unit: 'mph',
@@ -61,6 +95,12 @@ export async function fetchWeather(
     };
   });
 
+  const hourly = mapUpcomingHourlyForecasts(
+    data.hourly.time,
+    data.hourly.temperature_2m,
+    data.hourly.weather_code
+  );
+
   return {
     locationName,
     current: {
@@ -71,6 +111,7 @@ export async function fetchWeather(
       condition: currentCondition,
       conditionLabel: getConditionLabel(currentCondition),
     },
+    hourly,
     daily,
   };
 }
