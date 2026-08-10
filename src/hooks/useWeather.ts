@@ -1,7 +1,10 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
+import { fetchWeatherAlerts } from '../services/alertsApi';
+import { notifyWeatherAlerts } from '../services/notificationService';
 import { fetchWeather } from '../services/weatherApi';
+import { WeatherAlert } from '../types/alert';
 import {
   formatLocationLabel,
   LocationResult,
@@ -17,6 +20,7 @@ const DEFAULT_LOCATION = {
 
 interface UseWeatherResult {
   weather: WeatherData | null;
+  alerts: WeatherAlert[];
   loading: boolean;
   error: string | null;
   locationSource: LocationSource;
@@ -56,10 +60,30 @@ async function resolveGpsLocation(): Promise<{
 
 export function useWeather(): UseWeatherResult {
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [alerts, setAlerts] = useState<WeatherAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [locationSource, setLocationSource] = useState<LocationSource>({ type: 'gps' });
   const locationSourceRef = useRef<LocationSource>({ type: 'gps' });
+  const previousAlertIdsRef = useRef<Set<string>>(new Set());
+  const skipNextNotificationRef = useRef(true);
+
+  const handleAlertsUpdate = useCallback((nextAlerts: WeatherAlert[]) => {
+    const currentIds = new Set(nextAlerts.map((alert) => alert.id));
+
+    if (skipNextNotificationRef.current) {
+      previousAlertIdsRef.current = currentIds;
+      skipNextNotificationRef.current = false;
+      return;
+    }
+
+    const newAlerts = nextAlerts.filter((alert) => !previousAlertIdsRef.current.has(alert.id));
+    if (newAlerts.length > 0) {
+      void notifyWeatherAlerts(newAlerts);
+    }
+
+    previousAlertIdsRef.current = currentIds;
+  }, []);
 
   const loadWeather = useCallback(async () => {
     const activeSource = locationSourceRef.current;
@@ -83,14 +107,19 @@ export function useWeather(): UseWeatherResult {
         locationName = gpsLocation.name;
       }
 
-      const data = await fetchWeather(latitude, longitude, locationName);
+      const [data, alertData] = await Promise.all([
+        fetchWeather(latitude, longitude, locationName),
+        fetchWeatherAlerts(latitude, longitude),
+      ]);
       setWeather(data);
+      setAlerts(alertData);
+      handleAlertsUpdate(alertData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [handleAlertsUpdate]);
 
   useEffect(() => {
     loadWeather();
@@ -121,6 +150,7 @@ export function useWeather(): UseWeatherResult {
       };
       locationSourceRef.current = manualSource;
       setLocationSource(manualSource);
+      skipNextNotificationRef.current = true;
       await loadWeather();
     },
     [loadWeather]
@@ -130,11 +160,13 @@ export function useWeather(): UseWeatherResult {
     const gpsSource: LocationSource = { type: 'gps' };
     locationSourceRef.current = gpsSource;
     setLocationSource(gpsSource);
+    skipNextNotificationRef.current = true;
     await loadWeather();
   }, [loadWeather]);
 
   return {
     weather,
+    alerts,
     loading,
     error,
     locationSource,

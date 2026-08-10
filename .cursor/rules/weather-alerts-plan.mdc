@@ -70,6 +70,12 @@ GET https://geocoding-api.open-meteo.com/v1/search
   &language=en
 ```
 
+### Weather Alerts (NWS — US only)
+```
+GET https://api.weather.gov/alerts/active?point={lat},{lon}
+```
+`User-Agent` 헤더 필수. 미국 NWS CAP 알림만 반환; 해외 좌표는 빈 목록. `loadWeather`에서 forecast와 병렬 fetch.
+
 ### API Limits (Free Tier)
 - 10,000 calls / day, 5,000 / hour, 600 / minute
 - 비상업적 용도만 허용
@@ -105,12 +111,17 @@ type LocationSource =
 
 ### Key Files
 - `src/services/weatherApi.ts` — fetch and map weather API response (current + hourly + daily)
+- `src/services/alertsApi.ts` — NWS active alerts for coordinates (US)
+- `src/services/preferencesStorage.ts` — AsyncStorage helpers (temperature unit)
+- `src/hooks/useTemperatureUnit.ts` — load/save °F/°C preference
 - `src/services/geocodingApi.ts` — global city search (no country filter)
-- `src/hooks/useWeather.ts` — GPS / manual `LocationSource`, loading/error, fetch on start, `refresh`, resume refresh
+- `src/hooks/useWeather.ts` — GPS / manual `LocationSource`, loading/error, fetch on start, `refresh`, resume refresh, alerts + notifications
 - `src/components/LocationSearchModal.tsx` — debounced search UI
 - `src/utils/weatherCode.ts` — WMO weather code → condition mapping, `formatHourLabel`
 - `src/types/location.ts` — `LocationResult`, `LocationSource`
 - `src/types/weather.ts` — `HourlyForecast`, `WeatherData`
+- `src/types/alert.ts` — `WeatherAlert`
+- `src/components/WeatherAlertsCard.tsx` — active alerts list (shown when alerts exist)
 
 ---
 
@@ -185,6 +196,7 @@ interface WeatherTheme {
 - [x] `weather.current.condition`에서 테마 파생
 - [x] 배경·카드 모두 어두운 톤으로 조정
 - [x] StatusBar: `light` (모든 날씨 조건)
+- [x] 조건 변경 시 배경 그라데이션 crossfade (`Animated` opacity, ~450ms, 두 레이어)
 
 ---
 
@@ -202,12 +214,12 @@ interface WeatherTheme {
 - [x] Refresh chip in header (manual weather reload; chip spinner on refresh)
 - [x] TodayCard hourly forecast row (6 slots)
 - [x] App resume refresh — 백그라운드 복귀 시 자동 갱신 (`AppState` in `useWeather`)
+- [x] Weather alerts / notifications — NWS active alerts card + local notifications on new alerts (`expo-notifications`)
+- [x] Animated gradient transitions on condition change — crossfade between themes in `WeatherBackground` (~450ms)
+- [x] Haptic feedback on temperature unit toggle — light impact in `TodayCard` (`expo-haptics`)
+- [x] Persist last selected unit (°F/°C) in AsyncStorage (`useTemperatureUnit`, `preferencesStorage`)
 
 ### Next Up (하나씩 진행)
-- [ ] Weather alerts / notifications
-- [ ] Animated gradient transitions on condition change
-- [ ] Haptic feedback on temperature unit toggle
-- [ ] Persist last selected unit (°F/°C) in AsyncStorage
 - [ ] Persist last searched city in AsyncStorage
 - [ ] Dark mode system preference support
 
@@ -224,6 +236,8 @@ npx expo prebuild --clean          # 아이콘/이름/키보드 설정 변경 �
 - [x] Location permission granted → shows local weather
 - [x] Location denied → falls back to New York
 - [x] Tap temperature toggles F ↔ C (both cards)
+- [x] Temperature toggle triggers light haptic feedback (device)
+- [x] Temperature unit persists across app restarts (AsyncStorage)
 - [x] Background changes with different weather conditions
 - [x] 7-day forecast displays correctly (emoji + low/high)
 - [x] Tap location name opens search modal
@@ -233,4 +247,6 @@ npx expo prebuild --clean          # 아이콘/이름/키보드 설정 변경 �
 - [x] Tap refresh chip in header reloads weather
 - [x] TodayCard shows 6 hours of forecast (time, emoji, temp)
 - [x] Background → foreground resumes weather refresh (chip spinner, not full-screen)
+- [x] US locations show NWS active alerts card when alerts exist
+- [x] New alerts on refresh/resume trigger local notification (after permission grant)
 - [ ] App icon visible on native build

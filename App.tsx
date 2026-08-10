@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -11,17 +11,23 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { LocationSearchModal } from './src/components/LocationSearchModal';
 import { TodayCard } from './src/components/TodayCard';
+import { WeatherAlertsCard } from './src/components/WeatherAlertsCard';
 import { WeatherBackground } from './src/components/WeatherBackground';
 import { WeeklyForecastCard } from './src/components/WeeklyForecastCard';
 import { useWeather } from './src/hooks/useWeather';
-import { TemperatureUnit } from './src/utils/temperature';
+import { useTemperatureUnit } from './src/hooks/useTemperatureUnit';
+import { ensureNotificationPermissions } from './src/services/notificationService';
 import { getWeatherTheme } from './src/utils/weatherTheme';
 
 export default function App() {
-  const { weather, loading, error, refresh, selectLocation, useCurrentLocation } =
+  const { weather, alerts, loading, error, refresh, selectLocation, useCurrentLocation } =
     useWeather();
-  const [unit, setUnit] = useState<TemperatureUnit>('F');
+  const { unit, toggleUnit } = useTemperatureUnit();
   const [locationModalVisible, setLocationModalVisible] = useState(false);
+
+  useEffect(() => {
+    void ensureNotificationPermissions();
+  }, []);
 
   if (loading && !weather) {
     return (
@@ -78,12 +84,13 @@ export default function App() {
                 )}
               </Pressable>
             </View>
+            <WeatherAlertsCard alerts={alerts} theme={theme} />
             <TodayCard
               locationName={weather.locationName}
               current={weather.current}
               hourly={weather.hourly}
               unit={unit}
-              onToggleUnit={() => setUnit((prev) => (prev === 'F' ? 'C' : 'F'))}
+              onToggleUnit={toggleUnit}
               onLocationPress={() => setLocationModalVisible(true)}
             />
             <WeeklyForecastCard
