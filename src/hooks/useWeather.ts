@@ -1,9 +1,12 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
 import { fetchWeatherAlerts } from '../services/alertsApi';
 import { notifyWeatherAlerts } from '../services/notificationService';
 import { fetchWeather } from '../services/weatherApi';
+import {
+  loadWeatherSnapshot,
+  saveWeatherSnapshot,
+} from '../services/weatherCacheStorage';
 import { WeatherAlert } from '../types/alert';
 import {
   formatLocationLabel,
@@ -41,9 +44,12 @@ async function resolveGpsLocation(): Promise<{
 
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status === 'granted') {
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
+    const position =
+      (await Location.getLastKnownPositionAsync({ maxAge: 600_000 })) ??
+      (await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      }));
+
     latitude = position.coords.latitude;
     longitude = position.coords.longitude;
 
@@ -67,11 +73,10 @@ export function useWeather(): UseWeatherResult {
   const [error, setError] = useState<string | null>(null);
   const [locationSource, setLocationSource] = useState<LocationSource>({ type: 'gps' });
   const locationSourceRef = useRef<LocationSource>({ type: 'gps' });
+  const weatherRef = useRef<WeatherData | null>(null);
   const previousAlertIdsRef = useRef<Set<string>>(new Set());
   const skipNextNotificationRef = useRef(true);
   const loadInFlightRef = useRef(false);
-  const hasInitiallyLoadedRef = useRef(false);
-  const appStateRef = useRef(AppState.currentState);
 
   const handleAlertsUpdate = useCallback((nextAlerts: WeatherAlert[]) => {
     const currentIds = new Set(nextAlerts.map((alert) => alert.id));
@@ -95,13 +100,13 @@ export function useWeather(): UseWeatherResult {
       return;
     }
 
-    const isInitialLoad = !hasInitiallyLoadedRef.current;
+    const hasCachedWeather = weatherRef.current !== null;
     loadInFlightRef.current = true;
 
-    if (isInitialLoad) {
-      setLoading(true);
-    } else {
+    if (hasCachedWeather) {
       setRefreshing(true);
+    } else {
+      setLoading(true);
     }
     setError(null);
 
@@ -127,16 +132,25 @@ export function useWeather(): UseWeatherResult {
         fetchWeatherAlerts(latitude, longitude),
       ]);
 
+      weatherRef.current = data;
       setWeather(data);
       setAlerts(alertData);
       handleAlertsUpdate(alertData);
+
+      void saveWeatherSnapshot({
+        weather: data,
+        alerts: alertData,
+        locationSource: locationSourceRef.current,
+        savedAt: new Date().toISOString(),
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      if (!weatherRef.current) {
+        setError(err instanceof Error ? err.message : 'Something went wrong');
+      }
     } finally {
       loadInFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
-      hasInitiallyLoadedRef.current = true;
     }
   }, [handleAlertsUpdate]);
 
@@ -144,24 +158,29 @@ export function useWeather(): UseWeatherResult {
   loadWeatherRef.current = loadWeather;
 
   useEffect(() => {
-    void loadWeatherRef.current();
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      const previousAppState = appStateRef.current;
-      appStateRef.current = nextAppState;
-
-      if (!hasInitiallyLoadedRef.current) {
+    void (async () => {
+      const snapshot = await loadWeatherSnapshot();
+      if (cancelled) {
         return;
       }
 
-      if (previousAppState.match(/inactive|background/) && nextAppState === 'active') {
-        void loadWeatherRef.current();
+      if (snapshot) {
+        weatherRef.current = snapshot.weather;
+        setWeather(snapshot.weather);
+        setAlerts(snapshot.alerts);
+        locationSourceRef.current = snapshot.locationSource;
+        setLocationSource(snapshot.locationSource);
+        setLoading(false);
       }
-    });
 
-    return () => subscription.remove();
+      await loadWeatherRef.current();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const refresh = useCallback(() => loadWeather(), [loadWeather]);
