@@ -5,6 +5,7 @@ import { WeatherAlert } from '../types/alert';
 const ANDROID_CHANNEL_ID = 'weather-alerts';
 
 let configured = false;
+let permissionPromptAttempted = false;
 
 export function configureNotifications(): void {
   if (configured) {
@@ -38,6 +39,12 @@ export async function ensureNotificationPermissions(): Promise<boolean> {
   if (current.granted) {
     return true;
   }
+
+  if (permissionPromptAttempted) {
+    return false;
+  }
+
+  permissionPromptAttempted = true;
 
   const requested = await Notifications.requestPermissionsAsync({
     ios: {

@@ -22,6 +22,7 @@ interface UseWeatherResult {
   weather: WeatherData | null;
   alerts: WeatherAlert[];
   loading: boolean;
+  refreshing: boolean;
   error: string | null;
   locationSource: LocationSource;
   refresh: () => Promise<void>;
@@ -62,13 +63,15 @@ export function useWeather(): UseWeatherResult {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [alerts, setAlerts] = useState<WeatherAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locationSource, setLocationSource] = useState<LocationSource>({ type: 'gps' });
   const locationSourceRef = useRef<LocationSource>({ type: 'gps' });
   const previousAlertIdsRef = useRef<Set<string>>(new Set());
   const skipNextNotificationRef = useRef(true);
-  const loadGenerationRef = useRef(0);
+  const loadInFlightRef = useRef(false);
   const hasInitiallyLoadedRef = useRef(false);
+  const appStateRef = useRef(AppState.currentState);
 
   const handleAlertsUpdate = useCallback((nextAlerts: WeatherAlert[]) => {
     const currentIds = new Set(nextAlerts.map((alert) => alert.id));
@@ -88,13 +91,22 @@ export function useWeather(): UseWeatherResult {
   }, []);
 
   const loadWeather = useCallback(async () => {
-    const activeSource = locationSourceRef.current;
-    const generation = ++loadGenerationRef.current;
+    if (loadInFlightRef.current) {
+      return;
+    }
 
-    setLoading(true);
+    const isInitialLoad = !hasInitiallyLoadedRef.current;
+    loadInFlightRef.current = true;
+
+    if (isInitialLoad) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     setError(null);
 
     try {
+      const activeSource = locationSourceRef.current;
       let latitude: number;
       let longitude: number;
       let locationName: string;
@@ -110,43 +122,30 @@ export function useWeather(): UseWeatherResult {
         locationName = gpsLocation.name;
       }
 
-      if (generation !== loadGenerationRef.current) {
-        return;
-      }
-
       const [data, alertData] = await Promise.all([
         fetchWeather(latitude, longitude, locationName),
         fetchWeatherAlerts(latitude, longitude),
       ]);
 
-      if (generation !== loadGenerationRef.current) {
-        return;
-      }
-
       setWeather(data);
       setAlerts(alertData);
       handleAlertsUpdate(alertData);
     } catch (err) {
-      if (generation !== loadGenerationRef.current) {
-        return;
-      }
-
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
-      if (generation !== loadGenerationRef.current) {
-        return;
-      }
-
+      loadInFlightRef.current = false;
       setLoading(false);
+      setRefreshing(false);
       hasInitiallyLoadedRef.current = true;
     }
   }, [handleAlertsUpdate]);
 
-  useEffect(() => {
-    loadWeather();
-  }, [loadWeather]);
+  const loadWeatherRef = useRef(loadWeather);
+  loadWeatherRef.current = loadWeather;
 
-  const appStateRef = useRef(AppState.currentState);
+  useEffect(() => {
+    void loadWeatherRef.current();
+  }, []);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
@@ -158,12 +157,12 @@ export function useWeather(): UseWeatherResult {
       }
 
       if (previousAppState.match(/inactive|background/) && nextAppState === 'active') {
-        void loadWeather();
+        void loadWeatherRef.current();
       }
     });
 
     return () => subscription.remove();
-  }, [loadWeather]);
+  }, []);
 
   const refresh = useCallback(() => loadWeather(), [loadWeather]);
 
@@ -195,6 +194,7 @@ export function useWeather(): UseWeatherResult {
     weather,
     alerts,
     loading,
+    refreshing,
     error,
     locationSource,
     refresh,

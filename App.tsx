@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -20,16 +20,26 @@ import { ensureNotificationPermissions } from './src/services/notificationServic
 import { getWeatherTheme } from './src/utils/weatherTheme';
 
 export default function App() {
-  const { weather, alerts, loading, error, refresh, selectLocation, useCurrentLocation } =
-    useWeather();
+  const {
+    weather,
+    alerts,
+    loading,
+    refreshing,
+    error,
+    refresh,
+    selectLocation,
+    useCurrentLocation,
+  } = useWeather();
   const { unit, toggleUnit } = useTemperatureUnit();
   const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const notificationSetupDoneRef = useRef(false);
 
   useEffect(() => {
-    if (!weather) {
+    if (!weather || notificationSetupDoneRef.current) {
       return;
     }
 
+    notificationSetupDoneRef.current = true;
     void ensureNotificationPermissions();
   }, [weather]);
 
@@ -70,16 +80,16 @@ export default function App() {
               <Text style={[styles.header, { color: theme.text }]}>Weather Alerts</Text>
               <Pressable
                 onPress={refresh}
-                disabled={loading}
+                disabled={refreshing}
                 style={[
                   styles.refreshChip,
                   { backgroundColor: theme.cardBackground },
-                  loading && styles.refreshChipDisabled,
+                  refreshing && styles.refreshChipDisabled,
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel="Refresh weather"
               >
-                {loading ? (
+                {refreshing ? (
                   <ActivityIndicator size="small" color={theme.accent} />
                 ) : (
                   <Text style={[styles.refreshChipText, { color: theme.accent }]}>
