@@ -67,6 +67,8 @@ export function useWeather(): UseWeatherResult {
   const locationSourceRef = useRef<LocationSource>({ type: 'gps' });
   const previousAlertIdsRef = useRef<Set<string>>(new Set());
   const skipNextNotificationRef = useRef(true);
+  const loadGenerationRef = useRef(0);
+  const hasInitiallyLoadedRef = useRef(false);
 
   const handleAlertsUpdate = useCallback((nextAlerts: WeatherAlert[]) => {
     const currentIds = new Set(nextAlerts.map((alert) => alert.id));
@@ -87,6 +89,7 @@ export function useWeather(): UseWeatherResult {
 
   const loadWeather = useCallback(async () => {
     const activeSource = locationSourceRef.current;
+    const generation = ++loadGenerationRef.current;
 
     setLoading(true);
     setError(null);
@@ -107,17 +110,35 @@ export function useWeather(): UseWeatherResult {
         locationName = gpsLocation.name;
       }
 
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
+
       const [data, alertData] = await Promise.all([
         fetchWeather(latitude, longitude, locationName),
         fetchWeatherAlerts(latitude, longitude),
       ]);
+
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
+
       setWeather(data);
       setAlerts(alertData);
       handleAlertsUpdate(alertData);
     } catch (err) {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
+
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
+
       setLoading(false);
+      hasInitiallyLoadedRef.current = true;
     }
   }, [handleAlertsUpdate]);
 
@@ -129,10 +150,16 @@ export function useWeather(): UseWeatherResult {
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
-        loadWeather();
-      }
+      const previousAppState = appStateRef.current;
       appStateRef.current = nextAppState;
+
+      if (!hasInitiallyLoadedRef.current) {
+        return;
+      }
+
+      if (previousAppState.match(/inactive|background/) && nextAppState === 'active') {
+        void loadWeather();
+      }
     });
 
     return () => subscription.remove();

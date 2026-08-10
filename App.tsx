@@ -26,8 +26,12 @@ export default function App() {
   const [locationModalVisible, setLocationModalVisible] = useState(false);
 
   useEffect(() => {
+    if (!weather) {
+      return;
+    }
+
     void ensureNotificationPermissions();
-  }, []);
+  }, [weather]);
 
   if (loading && !weather) {
     return (
