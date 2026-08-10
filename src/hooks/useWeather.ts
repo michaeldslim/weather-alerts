@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { fetchWeather } from '../services/weatherApi';
 import {
   formatLocationLabel,
@@ -93,6 +94,19 @@ export function useWeather(): UseWeatherResult {
 
   useEffect(() => {
     loadWeather();
+  }, [loadWeather]);
+
+  const appStateRef = useRef(AppState.currentState);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+        loadWeather();
+      }
+      appStateRef.current = nextAppState;
+    });
+
+    return () => subscription.remove();
   }, [loadWeather]);
 
   const refresh = useCallback(() => loadWeather(), [loadWeather]);

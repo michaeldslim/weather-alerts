@@ -99,14 +99,14 @@ type LocationSource =
 - [x] 검색 모달 키보드 대응 (`KeyboardAvoidingView` + 키보드 높이 margin)
 - [x] **Refresh chip** — 앱 타이틀(`Weather Alerts`) **오른쪽** chip 버튼으로 수동 갱신; 탭 시 `useWeather.refresh` 호출; 갱신 중 chip 스피너·비활성화 (초기 로드만 전체 화면 스피너)
 - [ ] 앱 실행 중 이동 시 자동 갱신 없음
-- [ ] 백그라운드 → 포그라운드 복귀 시 자동 갱신 없음
+- [x] **백그라운드 → 포그라운드 복귀** 시 자동 갱신 (`AppState` → `active` 시 `loadWeather`; 기존 데이터 있으면 chip 스피너만)
 - [ ] 주기적 위치/날씨 갱신 없음
 - [ ] 검색 도시 AsyncStorage 저장 없음
 
 ### Key Files
 - `src/services/weatherApi.ts` — fetch and map weather API response (current + hourly + daily)
 - `src/services/geocodingApi.ts` — global city search (no country filter)
-- `src/hooks/useWeather.ts` — GPS / manual `LocationSource`, loading/error, fetch on start, `refresh`
+- `src/hooks/useWeather.ts` — GPS / manual `LocationSource`, loading/error, fetch on start, `refresh`, resume refresh
 - `src/components/LocationSearchModal.tsx` — debounced search UI
 - `src/utils/weatherCode.ts` — WMO weather code → condition mapping, `formatHourLabel`
 - `src/types/location.ts` — `LocationResult`, `LocationSource`
@@ -201,9 +201,9 @@ interface WeatherTheme {
 - [x] Search modal safe area & keyboard handling
 - [x] Refresh chip in header (manual weather reload; chip spinner on refresh)
 - [x] TodayCard hourly forecast row (6 slots)
+- [x] App resume refresh — 백그라운드 복귀 시 자동 갱신 (`AppState` in `useWeather`)
 
 ### Next Up (하나씩 진행)
-- [ ] App resume refresh — 백그라운드 복귀 시 자동 갱신
 - [ ] Weather alerts / notifications
 - [ ] Animated gradient transitions on condition change
 - [ ] Haptic feedback on temperature unit toggle
@@ -232,4 +232,5 @@ npx expo prebuild --clean          # 아이콘/이름/키보드 설정 변경 �
 - [x] Search modal not hidden by home indicator or keyboard
 - [x] Tap refresh chip in header reloads weather
 - [x] TodayCard shows 6 hours of forecast (time, emoji, temp)
+- [x] Background → foreground resumes weather refresh (chip spinner, not full-screen)
 - [ ] App icon visible on native build
