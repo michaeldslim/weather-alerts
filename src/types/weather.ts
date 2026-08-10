@@ -14,6 +14,7 @@ export interface CurrentWeather {
   humidity: number;
   windSpeed: number;
   feelsLike: number;
+  uvIndex: number;
 }
 
 export interface DailyForecast {

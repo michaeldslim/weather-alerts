@@ -15,6 +15,7 @@ interface OpenMeteoResponse {
     relative_humidity_2m: number;
     wind_speed_10m: number;
     weather_code: number;
+    uv_index: number;
   };
   hourly: {
     time: string[];
@@ -63,7 +64,7 @@ export async function fetchWeather(
     latitude: String(latitude),
     longitude: String(longitude),
     current:
-      'temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code',
+      'temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,uv_index',
     hourly: 'temperature_2m,weather_code',
     daily: 'weather_code,temperature_2m_max,temperature_2m_min',
     temperature_unit: 'fahrenheit',
@@ -108,6 +109,7 @@ export async function fetchWeather(
       feelsLike: Math.round(data.current.apparent_temperature),
       humidity: data.current.relative_humidity_2m,
       windSpeed: Math.round(data.current.wind_speed_10m),
+      uvIndex: data.current.uv_index,
       condition: currentCondition,
       conditionLabel: getConditionLabel(currentCondition),
     },

@@ -26,7 +26,7 @@ Expo + React Native + TypeScript 프로젝트 구조 셋업.
   - `hooks/` — custom React hooks
   - `services/` — API layer
   - `types/` — TypeScript interfaces
-  - `utils/` — helpers (temperature, weather codes, themes)
+  - `utils/` — helpers (temperature, weather codes, themes, UV index)
 - [x] Configure `app.json` with location permissions (iOS + Android)
 - [x] App display name → **Weather Alerts**
 - [x] Custom app icons (`assets/icon.png`, Android adaptive icons, favicon)
@@ -51,7 +51,7 @@ Expo + React Native + TypeScript 프로젝트 구조 셋업.
 ```
 GET https://api.open-meteo.com/v1/forecast
   ?latitude={lat}&longitude={lon}
-  &current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code
+  &current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,uv_index
   &hourly=temperature_2m,weather_code
   &daily=weather_code,temperature_2m_max,temperature_2m_min
   &temperature_unit=fahrenheit
@@ -120,8 +120,9 @@ type LocationSource =
 - `src/hooks/useWeather.ts` — GPS / manual `LocationSource`, loading/error, fetch on start, `refresh`, alerts + notifications, cold-start cache
 - `src/components/LocationSearchModal.tsx` — debounced search UI
 - `src/utils/weatherCode.ts` — WMO weather code → condition mapping, `formatHourLabel`
+- `src/utils/uvIndex.ts` — UV index abbrev (L/M/H/E) and `formatUvIndexWithLevel`
 - `src/types/location.ts` — `LocationResult`, `LocationSource`
-- `src/types/weather.ts` — `HourlyForecast`, `WeatherData`
+- `src/types/weather.ts` — `CurrentWeather` (incl. `uvIndex`), `HourlyForecast`, `WeatherData`
 - `src/types/alert.ts` — `WeatherAlert`
 - `src/components/WeatherAlertsCard.tsx` — active alerts list (shown when alerts exist)
 
@@ -141,7 +142,7 @@ type LocationSource =
 - [x] 날씨 이모지, 조건 라벨 표시
 - [x] 현재 온도 **°F** 기본 표시
 - [x] **온도 탭** → °F ↔ °C 토글
-- [x] 체감온도, 습도, 풍속 detail row
+- [x] 체감온도, 습도, **UV Index**, 풍속 detail row — UV는 `7 (H)` 형식; 등급 약어 **L** (0–2) · **M** (3–5) · **H** (6–7) · **E** (8+)
 - [x] 어두운 반투명 카드 스타일
 - [x] 카드 높이 축소 (패딩·폰트·이모지 크기 조정)
 - [x] **시간별 예보 row** — 현재 시각 기준 **6시간** (시간 라벨 · 이모지 · 온도); API `hourly` 응답에서 현재 이후 6개 슬롯 사용; °F/°C 단위 TodayCard와 동기화
@@ -220,6 +221,7 @@ interface WeatherTheme {
 - [x] Haptic feedback on temperature unit toggle — light impact in `TodayCard` (`expo-haptics`)
 - [x] Persist last selected unit (°F/°C) in AsyncStorage (`useTemperatureUnit`, `preferencesStorage`)
 - [x] Cold-start preload — cached weather snapshot + background refresh on launch
+- [x] TodayCard UV index — Open-Meteo `uv_index` in detail row with compact level abbrev (`uvIndex.ts`)
 
 ### Next Up (하나씩 진행)
 - [ ] Dark mode system preference support
@@ -249,6 +251,7 @@ npx expo prebuild --clean          # 아이콘/이름/키보드 설정 변경 �
 - [x] Search modal not hidden by home indicator or keyboard
 - [x] Tap refresh chip in header reloads weather
 - [x] TodayCard shows 6 hours of forecast (time, emoji, temp)
+- [x] TodayCard shows UV index with abbreviated level (e.g. `7 (H)`)
 - [ ] Background → foreground auto-refresh (disabled; manual Refresh chip only)
 - [x] US locations show NWS active alerts card when alerts exist
 - [x] New alerts on manual refresh trigger local notification (after permission grant)
