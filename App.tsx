@@ -23,7 +23,7 @@ export default function App() {
   const [unit, setUnit] = useState<TemperatureUnit>('F');
   const [locationModalVisible, setLocationModalVisible] = useState(false);
 
-  if (loading) {
+  if (loading && !weather) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#4A90D9" />
@@ -56,10 +56,32 @@ export default function App() {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={[styles.header, { color: theme.text }]}>Weather Alerts</Text>
+            <View style={styles.headerRow}>
+              <Text style={[styles.header, { color: theme.text }]}>Weather Alerts</Text>
+              <Pressable
+                onPress={refresh}
+                disabled={loading}
+                style={[
+                  styles.refreshChip,
+                  { backgroundColor: theme.cardBackground },
+                  loading && styles.refreshChipDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Refresh weather"
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color={theme.accent} />
+                ) : (
+                  <Text style={[styles.refreshChipText, { color: theme.accent }]}>
+                    Refresh
+                  </Text>
+                )}
+              </Pressable>
+            </View>
             <TodayCard
               locationName={weather.locationName}
               current={weather.current}
+              hourly={weather.hourly}
               unit={unit}
               onToggleUnit={() => setUnit((prev) => (prev === 'F' ? 'C' : 'F'))}
               onLocationPress={() => setLocationModalVisible(true)}
@@ -92,10 +114,32 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 12,
+  },
   header: {
+    flex: 1,
     fontSize: 28,
     fontWeight: '700',
-    marginBottom: 20,
+  },
+  refreshChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshChipDisabled: {
+    opacity: 0.7,
+  },
+  refreshChipText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   centered: {
     flex: 1,
