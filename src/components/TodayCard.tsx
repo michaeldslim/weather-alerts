@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CurrentWeather, HourlyForecast } from '../types/weather';
 import {
@@ -40,7 +41,13 @@ export function TodayCard({
         {current.conditionLabel}
       </Text>
 
-      <Pressable onPress={onToggleUnit} style={styles.temperatureButton}>
+      <Pressable
+        onPress={() => {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onToggleUnit();
+        }}
+        style={styles.temperatureButton}
+      >
         <Text style={[styles.temperature, { color: theme.text }]}>
           {formatTemperature(displayTemp, unit)}
         </Text>
