@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { CurrentWeather } from '../types/weather';
+import { CurrentWeather, HourlyForecast } from '../types/weather';
 import {
   convertTemperature,
   formatTemperature,
@@ -10,6 +10,7 @@ import { getWeatherEmoji, getWeatherTheme } from '../utils/weatherTheme';
 interface TodayCardProps {
   locationName: string;
   current: CurrentWeather;
+  hourly: HourlyForecast[];
   unit: TemperatureUnit;
   onToggleUnit: () => void;
   onLocationPress: () => void;
@@ -18,6 +19,7 @@ interface TodayCardProps {
 export function TodayCard({
   locationName,
   current,
+  hourly,
   unit,
   onToggleUnit,
   onLocationPress,
@@ -67,6 +69,25 @@ export function TodayCard({
           </Text>
         </View>
       </View>
+
+      {hourly.length > 0 && (
+        <View style={styles.hourlyRow}>
+          {hourly.map((hour) => {
+            const displayHourTemp = convertTemperature(hour.temperature, unit);
+            return (
+              <View key={hour.time} style={styles.hourlyItem}>
+                <Text style={[styles.hourlyLabel, { color: theme.text }]}>
+                  {hour.hourLabel}
+                </Text>
+                <Text style={styles.hourlyEmoji}>{getWeatherEmoji(hour.condition)}</Text>
+                <Text style={[styles.hourlyTemp, { color: theme.text }]}>
+                  {formatTemperature(displayHourTemp, unit)}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -74,55 +95,55 @@ export function TodayCard({
 const styles = StyleSheet.create({
   card: {
     borderRadius: 24,
-    padding: 18,
+    padding: 14,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   locationButton: {
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   location: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     opacity: 0.9,
   },
   locationHint: {
-    fontSize: 12,
+    fontSize: 11,
     opacity: 0.65,
-    marginTop: 2,
+    marginTop: 1,
   },
   emoji: {
-    fontSize: 48,
+    fontSize: 40,
     textAlign: 'center',
-    marginVertical: 4,
+    marginVertical: 2,
   },
   condition: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '500',
     textAlign: 'center',
     marginBottom: 0,
   },
   temperatureButton: {
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   temperature: {
-    fontSize: 56,
+    fontSize: 48,
     fontWeight: '200',
     letterSpacing: -2,
   },
   tapHint: {
-    fontSize: 12,
+    fontSize: 11,
     opacity: 0.7,
-    marginTop: 2,
+    marginTop: 1,
   },
   detailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.2)',
   },
@@ -131,12 +152,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailLabel: {
-    fontSize: 12,
+    fontSize: 11,
     opacity: 0.7,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   detailValue: {
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  hourlyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  hourlyItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  hourlyLabel: {
+    fontSize: 11,
+    opacity: 0.7,
+    marginBottom: 2,
+  },
+  hourlyEmoji: {
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  hourlyTemp: {
+    fontSize: 13,
     fontWeight: '600',
   },
 });
