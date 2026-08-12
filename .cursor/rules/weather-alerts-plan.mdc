@@ -53,14 +53,17 @@ GET https://api.open-meteo.com/v1/forecast
   ?latitude={lat}&longitude={lon}
   &current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,uv_index,is_day
   &hourly=temperature_2m,weather_code
-  &daily=weather_code,temperature_2m_max,temperature_2m_min
+  &daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max,precipitation_sum
   &temperature_unit=fahrenheit
   &wind_speed_unit=mph
+  &precipitation_unit=inch
   &timezone=auto
   &forecast_days=7
 ```
 
 `hourly` — TodayCard 시간별 row용; 응답에서 **현재 이후 6개** 슬롯을 클라이언트에서 추출 (`HOURLY_FORECAST_COUNT = 6`). `useWeather.refresh`와 동일 요청에서 함께 fetch.
+
+`daily` — 7-Day Forecast row용 high/low + 강수; Outlook **Sun & Daylight**용 `sunrise`/`sunset` (`daily[0]` + `daily[1].sunrise` for next sunrise).
 
 ### Geocoding Endpoint (도시 검색)
 ```
@@ -76,10 +79,20 @@ GET https://api.weather.gov/alerts/active?point={lat},{lon}
 ```
 `User-Agent` 헤더 필수. 미국 NWS CAP 알림만 반환; 해외 좌표는 빈 목록. `loadWeather`에서 forecast와 병렬 fetch.
 
+### Air Quality (Open-Meteo — global)
+```
+GET https://air-quality-api.open-meteo.com/v1/air-quality
+  ?latitude={lat}&longitude={lon}
+  &current=us_aqi,pm2_5
+  &timezone=auto
+```
+`current` — fetch 시점 기준 US AQI + PM2.5 (모델 데이터). `loadWeather`에서 forecast·alerts와 **병렬** fetch; 실패 시 Outlook 카드에 "Unavailable" 표시.
+
 ### API Limits (Free Tier)
 - 10,000 calls / day, 5,000 / hour, 600 / minute
 - 비상업적 용도만 허용
 - 날씨 요청 1회 ≈ API call 1회 (current + hourly + daily, 7일, 위치 1곳)
+- **갱신 1회** ≈ forecast 1 + air quality 1 + NWS alerts 1 (US) — `Promise.all` 병렬
 - 도시 검색은 입력마다 별도 API call (400ms debounce 적용)
 
 ### Location Flow
@@ -111,21 +124,27 @@ type LocationSource =
 - [ ] 검색 도시 AsyncStorage 저장 없음 (locationSource는 weather snapshot에 포함)
 
 ### Key Files
-- `src/services/weatherApi.ts` — fetch and map weather API response (current + hourly + daily)
+- `src/services/weatherApi.ts` — fetch and map weather API response (current + hourly + daily + sun/precip insights)
+- `src/services/airQualityApi.ts` — Open-Meteo air quality (`us_aqi`, `pm2_5`)
 - `src/services/alertsApi.ts` — NWS active alerts for coordinates (US)
 - `src/services/preferencesStorage.ts` — AsyncStorage helpers (temperature unit)
 - `src/services/weatherCacheStorage.ts` — cached weather snapshot for cold start
 - `src/hooks/useLocalTime.ts` — live local clock for selected city timezone
 - `src/utils/localTime.ts` — `formatLocalTime` via `Intl.DateTimeFormat`
+- `src/utils/sunDaylight.ts` — sunrise/sunset formatting, daylight duration, sun status label
+- `src/utils/precipitation.ts` — precip chance/amount labels for 7-day rows
+- `src/utils/airQuality.ts` — US AQI category, accent colors, scale segments
 - `src/services/geocodingApi.ts` — global city search (no country filter)
-- `src/hooks/useWeather.ts` — GPS / manual `LocationSource`, loading/error, fetch on start, `refresh`, alerts + notifications, cold-start cache
+- `src/hooks/useWeather.ts` — GPS / manual `LocationSource`, loading/error, fetch on start, `refresh`, alerts + air quality + notifications, cold-start cache
 - `src/components/LocationSearchModal.tsx` — debounced search UI
 - `src/components/CollapsingLocationHeader.tsx` — scroll-linked inline + sticky city name animation
+- `src/components/WeatherInsightsCard.tsx` — Outlook card (sun/daylight, UV, air quality)
+- `src/components/ScaleBar.tsx` — color-segment scale bar with value marker (UV + AQI)
 - `src/utils/weatherCode.ts` — WMO weather code → condition mapping, `formatHourLabel`
 - `src/utils/weatherSummary.ts` — `buildTodaySummary` from daily forecast (no API text field)
-- `src/utils/uvIndex.ts` — UV index abbrev (L/M/H/E) and `formatUvIndexWithLevel`
+- `src/utils/uvIndex.ts` — UV category, accent, scale segments (`UV_INDEX_SCALE_MAX = 11`)
 - `src/types/location.ts` — `LocationResult`, `LocationSource`
-- `src/types/weather.ts` — `CurrentWeather` (incl. `uvIndex`), `HourlyForecast`, `WeatherData`
+- `src/types/weather.ts` — `CurrentWeather`, `DailyForecast` (incl. precip), `WeatherInsights`, `WeatherData`
 - `src/types/alert.ts` — `WeatherAlert`
 - `src/components/WeatherAlertsCard.tsx` — active alerts list (shown when alerts exist)
 
@@ -134,7 +153,13 @@ type LocationSource =
 ## Phase 3: UI Cards
 
 ### Goal
-오늘 날씨 카드와 주간 예보 카드 구현.
+오늘 날씨 카드, Outlook 카드, 주간 예보 카드 구현.
+
+### Layout (App.tsx scroll order)
+Alerts (conditional) → **Today** → **Outlook** → **7-Day Forecast**
+
+### Screen padding
+- [x] Scroll content + sticky location chip: **`paddingHorizontal: 10`** (`App.tsx` `scrollContent`, `CollapsingLocationHeader` sticky wrapper)
 
 ### Header (App.tsx)
 - [x] 상단 타이틀: **Weather Alerts**
@@ -151,14 +176,22 @@ type LocationSource =
 - [x] 날씨 이모지, 조건 라벨 표시
 - [x] 현재 온도 **°F** 기본 표시
 - [x] **온도 탭** → °F ↔ °C 토글
-- [x] 체감온도, 습도, **UV Index**, 풍속 detail row — UV는 `7 (H)` 형식; 등급 약어 **L** (0–2) · **M** (3–5) · **H** (6–7) · **E** (8+)
+- [x] 체감온도, 습도, 풍속 detail row (3열) — **UV Index는 Outlook 카드로 이동**
 - [x] 어두운 반투명 카드 스타일
 - [x] 카드 높이 축소 (패딩·폰트·이모지 크기 조정)
 - [x] **시간별 예보 row** — 현재 시각 기준 **6시간** (시간 라벨 · 이모지 · 온도); API `hourly` 응답에서 현재 이후 6개 슬롯 사용; °F/°C 단위 TodayCard와 동기화
 
+### WeatherInsightsCard (Outlook)
+- [x] 제목: **Outlook** — `weather.insights` 있을 때만 표시 (콜드 스타트 캐시에 없으면 refresh 전 숨김)
+- [x] **Sun & Daylight** — sunrise/sunset (도시 timezone), daylight duration, status (`Dark in …` / `Sunrise in …`)
+- [x] **UV Index** — `weather.current.uvIndex`; 숫자 badge + category (Low → Extreme); `ScaleBar` (0–11+, color segments) + end labels
+- [x] **Air Quality** — US AQI badge + category + PM2.5; `ScaleBar` (0–300, US AQI segments) + end labels; API 실패 시 unavailable
+
 ### WeeklyForecastCard
 - [x] 제목: "7-Day Forecast"
-- [x] 각 row: **요일 | 날씨 이모지 | 최저 / 최고 기온**
+- [x] 각 row: **요일 | 날씨 이모지 | 강수 | 최저 / 최고 기온**
+- [x] 강수 열 — `formatDailyPrecipLabel`: chance % · amount (`Trace` / `< 0.1 in` / `X.X in`); 없으면 `—`
+- [x] `DailyForecast.precipChancePercent`, `precipAmountInches` (optional — stale cache 호환)
 - [x] 요일 라벨: 오늘만 **Today**, 나머지는 요일 약어 (Sat, Sun, Mon …)
 - [x] 기온 순서: **최저 → 최고** (최저는 연하게, 최고는 진하게)
 - [x] 메인 카드 온도 단위(°F/°C)와 **동기화** (`App.tsx`에서 state 공유)
@@ -231,8 +264,11 @@ interface WeatherTheme {
 - [x] Haptic feedback on temperature unit toggle — light impact in `TodayCard` (`expo-haptics`)
 - [x] Persist last selected unit (°F/°C) in AsyncStorage (`useTemperatureUnit`, `preferencesStorage`)
 - [x] Cold-start preload — cached weather snapshot + background refresh on launch
-- [x] TodayCard UV index — Open-Meteo `uv_index` in detail row with compact level abbrev (`uvIndex.ts`)
 - [x] Collapsing location header — Galaxy-style scroll animation; city sticks at top when scrolling up (`CollapsingLocationHeader`)
+- [x] **Outlook card** — sun/daylight, UV index + AQI with `ScaleBar` (`WeatherInsightsCard`, `ScaleBar`)
+- [x] **7-day precipitation** — daily chance/amount on `WeeklyForecastCard` rows
+- [x] **Air quality fetch** — Open-Meteo parallel with weather refresh (`airQualityApi.ts`)
+- [x] **Wider cards** — screen horizontal padding 10px
 
 ### Next Up (하나씩 진행)
 - [ ] Dark mode system preference support
@@ -255,14 +291,16 @@ npx expo prebuild --clean          # 아이콘/이름/키보드 설정 변경 �
 - [x] Temperature unit persists across app restarts (AsyncStorage)
 - [x] Cold start shows cached weather immediately, then refreshes in background
 - [x] Background changes with different weather conditions
-- [x] 7-day forecast displays correctly (emoji + low/high)
+- [x] 7-day forecast displays correctly (emoji + precip + low/high)
 - [x] Tap location name opens search modal
 - [x] City search works worldwide
 - [x] Use current location switches back to GPS
 - [x] Search modal not hidden by home indicator or keyboard
 - [x] Tap refresh chip in header reloads weather
 - [x] TodayCard shows 6 hours of forecast (time, emoji, temp)
-- [x] TodayCard shows UV index with abbreviated level (e.g. `7 (H)`)
+- [x] Outlook card shows sun/daylight, UV scale bar, and air quality scale bar
+- [x] UV index removed from TodayCard detail row (shown in Outlook only)
+- [x] Air quality updates on manual Refresh (current model snapshot)
 - [x] City name collapses to sticky bar when scrolling up; returns on scroll down
 - [x] Today summary in TodayCard above weather emoji; updates with °F/°C toggle
 - [ ] Background → foreground auto-refresh (disabled; manual Refresh chip only)
