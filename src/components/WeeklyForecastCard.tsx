@@ -6,15 +6,17 @@ import { getWeatherEmoji, getWeatherTheme } from '../utils/weatherTheme';
 interface WeeklyForecastCardProps {
   daily: DailyForecast[];
   accentCondition: DailyForecast['condition'];
+  isDay: boolean;
   unit: TemperatureUnit;
 }
 
 export function WeeklyForecastCard({
   daily,
   accentCondition,
+  isDay,
   unit,
 }: WeeklyForecastCardProps) {
-  const theme = getWeatherTheme(accentCondition);
+  const theme = getWeatherTheme(accentCondition, isDay);
 
   return (
     <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>

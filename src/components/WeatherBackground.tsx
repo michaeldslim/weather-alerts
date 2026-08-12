@@ -6,22 +6,36 @@ import { getWeatherTheme } from '../utils/weatherTheme';
 
 const TRANSITION_MS = 450;
 
+interface WeatherAppearance {
+  condition: WeatherCondition;
+  isDay: boolean;
+}
+
 interface WeatherBackgroundProps {
   condition: WeatherCondition;
+  isDay: boolean;
   children: ReactNode;
 }
 
-export function WeatherBackground({ condition, children }: WeatherBackgroundProps) {
-  const [baseCondition, setBaseCondition] = useState(condition);
-  const [overlayCondition, setOverlayCondition] = useState<WeatherCondition | null>(null);
+function appearancesEqual(a: WeatherAppearance, b: WeatherAppearance): boolean {
+  return a.condition === b.condition && a.isDay === b.isDay;
+}
+
+export function WeatherBackground({ condition, isDay, children }: WeatherBackgroundProps) {
+  const [baseAppearance, setBaseAppearance] = useState<WeatherAppearance>({
+    condition,
+    isDay,
+  });
+  const [overlayAppearance, setOverlayAppearance] = useState<WeatherAppearance | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
-  const baseRef = useRef(condition);
-  const overlayRef = useRef<WeatherCondition | null>(null);
+  const baseRef = useRef<WeatherAppearance>({ condition, isDay });
+  const overlayRef = useRef<WeatherAppearance | null>(null);
 
   useEffect(() => {
+    const nextAppearance = { condition, isDay };
     const from = overlayRef.current ?? baseRef.current;
-    if (from === condition) {
+    if (appearancesEqual(from, nextAppearance)) {
       return;
     }
 
@@ -29,11 +43,11 @@ export function WeatherBackground({ condition, children }: WeatherBackgroundProp
 
     if (overlayRef.current) {
       baseRef.current = overlayRef.current;
-      setBaseCondition(overlayRef.current);
+      setBaseAppearance(overlayRef.current);
     }
 
-    overlayRef.current = condition;
-    setOverlayCondition(condition);
+    overlayRef.current = nextAppearance;
+    setOverlayAppearance(nextAppearance);
     fadeAnim.setValue(0);
 
     animRef.current = Animated.timing(fadeAnim, {
@@ -47,20 +61,22 @@ export function WeatherBackground({ condition, children }: WeatherBackgroundProp
         return;
       }
 
-      baseRef.current = condition;
+      baseRef.current = nextAppearance;
       overlayRef.current = null;
-      setBaseCondition(condition);
-      setOverlayCondition(null);
+      setBaseAppearance(nextAppearance);
+      setOverlayAppearance(null);
       fadeAnim.setValue(0);
     });
 
     return () => {
       animRef.current?.stop();
     };
-  }, [condition, fadeAnim]);
+  }, [condition, fadeAnim, isDay]);
 
-  const baseTheme = getWeatherTheme(baseCondition);
-  const overlayTheme = overlayCondition ? getWeatherTheme(overlayCondition) : null;
+  const baseTheme = getWeatherTheme(baseAppearance.condition, baseAppearance.isDay);
+  const overlayTheme = overlayAppearance
+    ? getWeatherTheme(overlayAppearance.condition, overlayAppearance.isDay)
+    : null;
 
   return (
     <View style={styles.container}>

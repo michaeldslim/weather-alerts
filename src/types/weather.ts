@@ -15,6 +15,7 @@ export interface CurrentWeather {
   windSpeed: number;
   feelsLike: number;
   uvIndex: number;
+  isDay: boolean;
 }
 
 export interface DailyForecast {
@@ -35,6 +36,8 @@ export interface HourlyForecast {
 
 export interface WeatherData {
   locationName: string;
+  timezone: string;
+  countryCode: string;
   current: CurrentWeather;
   hourly: HourlyForecast[];
   daily: DailyForecast[];

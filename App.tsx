@@ -2,13 +2,20 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import {
+  CollapsingLocationHeaderScrollContent,
+  CollapsingLocationHeaderStickyOverlay,
+  LOCATION_COLLAPSE_END,
+} from './src/components/CollapsingLocationHeader';
 import { LocationSearchModal } from './src/components/LocationSearchModal';
 import { TodayCard } from './src/components/TodayCard';
 import { WeatherAlertsCard } from './src/components/WeatherAlertsCard';
@@ -17,7 +24,9 @@ import { WeeklyForecastCard } from './src/components/WeeklyForecastCard';
 import { useWeather } from './src/hooks/useWeather';
 import { useTemperatureUnit } from './src/hooks/useTemperatureUnit';
 import { ensureNotificationPermissions } from './src/services/notificationService';
+import { buildTodaySummary } from './src/utils/weatherSummary';
 import { getWeatherTheme } from './src/utils/weatherTheme';
+import { shouldShowLocalTime } from './src/types/location';
 
 export default function App() {
   const {
@@ -32,7 +41,9 @@ export default function App() {
   } = useWeather();
   const { unit, toggleUnit } = useTemperatureUnit();
   const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [locationSticky, setLocationSticky] = useState(false);
   const notificationSetupDoneRef = useRef(false);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!weather || notificationSetupDoneRef.current) {
@@ -65,54 +76,88 @@ export default function App() {
     );
   }
 
-  const theme = getWeatherTheme(weather.current.condition);
+  const theme = getWeatherTheme(weather.current.condition, weather.current.isDay);
   const statusBarStyle = 'light';
+  const today = weather.daily[0];
+  const todaySummary = today
+    ? buildTodaySummary(today.conditionLabel, today.high, today.low, unit)
+    : '';
+  const openLocationSearch = () => setLocationModalVisible(true);
+  const showLocalTime = shouldShowLocalTime(weather.countryCode);
+  const locationHeaderProps = {
+    locationName: weather.locationName,
+    timezone: weather.timezone,
+    showLocalTime,
+    textColor: theme.text,
+    accentColor: theme.accent,
+    cardBackground: theme.cardBackground,
+    scrollY,
+    onPress: openLocationSearch,
+  };
 
   return (
     <SafeAreaProvider>
-      <WeatherBackground condition={weather.current.condition}>
+      <WeatherBackground condition={weather.current.condition} isDay={weather.current.isDay}>
         <SafeAreaView style={styles.safeArea}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.headerRow}>
-              <Text style={[styles.header, { color: theme.text }]}>Weather Alerts</Text>
-              <Pressable
-                onPress={refresh}
-                disabled={refreshing}
-                style={[
-                  styles.refreshChip,
-                  { backgroundColor: theme.cardBackground },
-                  refreshing && styles.refreshChipDisabled,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Refresh weather"
-              >
-                {refreshing ? (
-                  <ActivityIndicator size="small" color={theme.accent} />
-                ) : (
-                  <Text style={[styles.refreshChipText, { color: theme.accent }]}>
-                    Refresh
-                  </Text>
-                )}
-              </Pressable>
-            </View>
-            <WeatherAlertsCard alerts={alerts} theme={theme} />
-            <TodayCard
-              locationName={weather.locationName}
-              current={weather.current}
-              hourly={weather.hourly}
-              unit={unit}
-              onToggleUnit={toggleUnit}
-              onLocationPress={() => setLocationModalVisible(true)}
+          <View style={styles.screen}>
+            <CollapsingLocationHeaderStickyOverlay
+              {...locationHeaderProps}
+              stickyActive={locationSticky}
             />
-            <WeeklyForecastCard
-              daily={weather.daily}
-              accentCondition={weather.current.condition}
-              unit={unit}
-            />
-          </ScrollView>
+            <Animated.ScrollView
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                {
+                  useNativeDriver: true,
+                  listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+                    const offsetY = event.nativeEvent.contentOffset.y;
+                    setLocationSticky(offsetY >= LOCATION_COLLAPSE_END * 0.35);
+                  },
+                }
+              )}
+            >
+              <View style={styles.headerRow}>
+                <Text style={[styles.header, { color: theme.text }]}>Weather Alerts</Text>
+                <Pressable
+                  onPress={refresh}
+                  disabled={refreshing}
+                  style={[
+                    styles.refreshChip,
+                    { backgroundColor: theme.cardBackground },
+                    refreshing && styles.refreshChipDisabled,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Refresh weather"
+                >
+                  {refreshing ? (
+                    <ActivityIndicator size="small" color={theme.accent} />
+                  ) : (
+                    <Text style={[styles.refreshChipText, { color: theme.accent }]}>
+                      Refresh
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+              <CollapsingLocationHeaderScrollContent {...locationHeaderProps} />
+              <WeatherAlertsCard alerts={alerts} theme={theme} />
+              <TodayCard
+                summary={todaySummary}
+                current={weather.current}
+                hourly={weather.hourly}
+                unit={unit}
+                onToggleUnit={toggleUnit}
+              />
+              <WeeklyForecastCard
+                daily={weather.daily}
+                accentCondition={weather.current.condition}
+                isDay={weather.current.isDay}
+                unit={unit}
+              />
+            </Animated.ScrollView>
+          </View>
         </SafeAreaView>
         <LocationSearchModal
           visible={locationModalVisible}
@@ -131,15 +176,18 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  screen: {
+    flex: 1,
+  },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 12,
     gap: 12,
   },
   header: {

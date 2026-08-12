@@ -7,7 +7,7 @@ export interface WeatherTheme {
   cardBackground: string;
 }
 
-const themes: Record<WeatherCondition, WeatherTheme> = {
+const dayThemes: Record<WeatherCondition, WeatherTheme> = {
   clear: {
     gradient: ['#2E5F9E', '#4A7FA8', '#B8943A'],
     accent: '#FFD700',
@@ -52,13 +52,64 @@ const themes: Record<WeatherCondition, WeatherTheme> = {
   },
 };
 
-export function getWeatherTheme(condition: WeatherCondition): WeatherTheme {
-  return themes[condition];
+const nightThemes: Record<WeatherCondition, WeatherTheme> = {
+  clear: {
+    gradient: ['#0B1026', '#141E3A', '#1E2A4A'],
+    accent: '#C4D4F0',
+    text: '#FFFFFF',
+    cardBackground: 'rgba(0, 0, 0, 0.35)',
+  },
+  partlyCloudy: {
+    gradient: ['#101827', '#1F2937', '#374151'],
+    accent: '#CBD5E0',
+    text: '#FFFFFF',
+    cardBackground: 'rgba(0, 0, 0, 0.32)',
+  },
+  cloudy: {
+    gradient: ['#111827', '#1F2937', '#374151'],
+    accent: '#E2E8F0',
+    text: '#FFFFFF',
+    cardBackground: 'rgba(0, 0, 0, 0.35)',
+  },
+  fog: {
+    gradient: ['#1A202C', '#2D3748', '#4A5568'],
+    accent: '#EDF2F7',
+    text: '#FFFFFF',
+    cardBackground: 'rgba(0, 0, 0, 0.34)',
+  },
+  rain: {
+    gradient: ['#0A1628', '#14213D', '#1E3A5F'],
+    accent: '#90CDF4',
+    text: '#FFFFFF',
+    cardBackground: 'rgba(0, 0, 0, 0.36)',
+  },
+  snow: {
+    gradient: ['#2D3748', '#4A5568', '#5A6578'],
+    accent: '#E2E8F0',
+    text: '#FFFFFF',
+    cardBackground: 'rgba(0, 0, 0, 0.32)',
+  },
+  thunderstorm: {
+    gradient: ['#05080C', '#0F1419', '#1A202C'],
+    accent: '#F6E05E',
+    text: '#FFFFFF',
+    cardBackground: 'rgba(0, 0, 0, 0.38)',
+  },
+};
+
+export function getWeatherTheme(
+  condition: WeatherCondition,
+  isDay = true
+): WeatherTheme {
+  return isDay ? dayThemes[condition] : nightThemes[condition];
 }
 
-export function getWeatherEmoji(condition: WeatherCondition): string {
-  const emojis: Record<WeatherCondition, string> = {
-    clear: '☀️',
+export function getWeatherEmoji(condition: WeatherCondition, isDay = true): string {
+  if (condition === 'clear') {
+    return isDay ? '☀️' : '🌙';
+  }
+
+  const emojis: Record<Exclude<WeatherCondition, 'clear'>, string> = {
     partlyCloudy: '⛅',
     cloudy: '☁️',
     fog: '🌫️',
@@ -66,5 +117,6 @@ export function getWeatherEmoji(condition: WeatherCondition): string {
     snow: '❄️',
     thunderstorm: '⛈️',
   };
+
   return emojis[condition];
 }

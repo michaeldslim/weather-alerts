@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { searchCities } from '../services/geocodingApi';
-import { LocationResult } from '../types/location';
+import { formatLocationLabel, LocationResult } from '../types/location';
 import { WeatherTheme } from '../utils/weatherTheme';
 
 interface LocationSearchModalProps {
@@ -199,8 +199,7 @@ function LocationSearchSheet({
               >
                 <Text style={[styles.resultName, { color: theme.text }]}>{item.name}</Text>
                 <Text style={[styles.resultMeta, { color: theme.text }]}>
-                  {item.admin1 ? `${item.admin1}, ` : ''}
-                  {item.country}
+                  {formatLocationLabel(item)}
                 </Text>
               </Pressable>
             )}

@@ -7,6 +7,7 @@ interface GeocodingResponse {
     latitude: number;
     longitude: number;
     country: string;
+    country_code: string;
     admin1?: string;
   }>;
 }
@@ -38,6 +39,7 @@ export async function searchCities(query: string): Promise<LocationResult[]> {
     latitude: result.latitude,
     longitude: result.longitude,
     country: result.country,
+    countryCode: result.country_code,
     admin1: result.admin1,
   }));
 }

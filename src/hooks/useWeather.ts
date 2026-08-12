@@ -37,10 +37,12 @@ async function resolveGpsLocation(): Promise<{
   latitude: number;
   longitude: number;
   name: string;
+  countryCode: string;
 }> {
   let latitude = DEFAULT_LOCATION.latitude;
   let longitude = DEFAULT_LOCATION.longitude;
   let locationName = DEFAULT_LOCATION.name;
+  let countryCode = 'US';
 
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status === 'granted') {
@@ -59,10 +61,11 @@ async function resolveGpsLocation(): Promise<{
     });
     if (place) {
       locationName = place.city ?? place.subregion ?? place.region ?? locationName;
+      countryCode = place.isoCountryCode ?? countryCode;
     }
   }
 
-  return { latitude, longitude, name: locationName };
+  return { latitude, longitude, name: locationName, countryCode };
 }
 
 export function useWeather(): UseWeatherResult {
@@ -115,20 +118,23 @@ export function useWeather(): UseWeatherResult {
       let latitude: number;
       let longitude: number;
       let locationName: string;
+      let countryCode: string;
 
       if (activeSource.type === 'manual') {
         latitude = activeSource.latitude;
         longitude = activeSource.longitude;
         locationName = activeSource.name;
+        countryCode = activeSource.countryCode;
       } else {
         const gpsLocation = await resolveGpsLocation();
         latitude = gpsLocation.latitude;
         longitude = gpsLocation.longitude;
         locationName = gpsLocation.name;
+        countryCode = gpsLocation.countryCode;
       }
 
       const [data, alertData] = await Promise.all([
-        fetchWeather(latitude, longitude, locationName),
+        fetchWeather(latitude, longitude, locationName, countryCode),
         fetchWeatherAlerts(latitude, longitude),
       ]);
 
@@ -192,6 +198,7 @@ export function useWeather(): UseWeatherResult {
         latitude: location.latitude,
         longitude: location.longitude,
         name: formatLocationLabel(location),
+        countryCode: location.countryCode,
       };
       locationSourceRef.current = manualSource;
       setLocationSource(manualSource);

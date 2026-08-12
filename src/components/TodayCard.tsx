@@ -10,34 +10,31 @@ import { formatUvIndexWithLevel } from '../utils/uvIndex';
 import { getWeatherEmoji, getWeatherTheme } from '../utils/weatherTheme';
 
 interface TodayCardProps {
-  locationName: string;
+  summary: string;
   current: CurrentWeather;
   hourly: HourlyForecast[];
   unit: TemperatureUnit;
   onToggleUnit: () => void;
-  onLocationPress: () => void;
 }
 
 export function TodayCard({
-  locationName,
+  summary,
   current,
   hourly,
   unit,
   onToggleUnit,
-  onLocationPress,
 }: TodayCardProps) {
-  const theme = getWeatherTheme(current.condition);
+  const theme = getWeatherTheme(current.condition, current.isDay);
 
   const displayTemp = convertTemperature(current.temperature, unit);
   const displayFeelsLike = convertTemperature(current.feelsLike, unit);
 
   return (
     <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
-      <Pressable onPress={onLocationPress} style={styles.locationButton}>
-        <Text style={[styles.location, { color: theme.text }]}>{locationName}</Text>
-        <Text style={[styles.locationHint, { color: theme.text }]}>Tap to change city</Text>
-      </Pressable>
-      <Text style={styles.emoji}>{getWeatherEmoji(current.condition)}</Text>
+      {summary.length > 0 && (
+        <Text style={[styles.summary, { color: theme.text }]}>{summary}</Text>
+      )}
+      <Text style={styles.emoji}>{getWeatherEmoji(current.condition, current.isDay)}</Text>
       <Text style={[styles.condition, { color: theme.text }]}>
         {current.conditionLabel}
       </Text>
@@ -114,24 +111,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
   },
-  locationButton: {
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  location: {
-    fontSize: 15,
-    fontWeight: '600',
-    opacity: 0.9,
-  },
-  locationHint: {
-    fontSize: 11,
-    opacity: 0.65,
-    marginTop: 1,
-  },
   emoji: {
     fontSize: 40,
     textAlign: 'center',
     marginVertical: 2,
+  },
+  summary: {
+    fontSize: 14,
+    fontWeight: '500',
+    opacity: 0.85,
+    textAlign: 'center',
+    marginBottom: 4,
   },
   condition: {
     fontSize: 16,

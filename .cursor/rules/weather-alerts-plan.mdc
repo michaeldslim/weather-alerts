@@ -51,7 +51,7 @@ Expo + React Native + TypeScript 프로젝트 구조 셋업.
 ```
 GET https://api.open-meteo.com/v1/forecast
   ?latitude={lat}&longitude={lon}
-  &current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,uv_index
+  &current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,uv_index,is_day
   &hourly=temperature_2m,weather_code
   &daily=weather_code,temperature_2m_max,temperature_2m_min
   &temperature_unit=fahrenheit
@@ -115,11 +115,14 @@ type LocationSource =
 - `src/services/alertsApi.ts` — NWS active alerts for coordinates (US)
 - `src/services/preferencesStorage.ts` — AsyncStorage helpers (temperature unit)
 - `src/services/weatherCacheStorage.ts` — cached weather snapshot for cold start
-- `src/hooks/useTemperatureUnit.ts` — load/save °F/°C preference
+- `src/hooks/useLocalTime.ts` — live local clock for selected city timezone
+- `src/utils/localTime.ts` — `formatLocalTime` via `Intl.DateTimeFormat`
 - `src/services/geocodingApi.ts` — global city search (no country filter)
 - `src/hooks/useWeather.ts` — GPS / manual `LocationSource`, loading/error, fetch on start, `refresh`, alerts + notifications, cold-start cache
 - `src/components/LocationSearchModal.tsx` — debounced search UI
+- `src/components/CollapsingLocationHeader.tsx` — scroll-linked inline + sticky city name animation
 - `src/utils/weatherCode.ts` — WMO weather code → condition mapping, `formatHourLabel`
+- `src/utils/weatherSummary.ts` — `buildTodaySummary` from daily forecast (no API text field)
 - `src/utils/uvIndex.ts` — UV index abbrev (L/M/H/E) and `formatUvIndexWithLevel`
 - `src/types/location.ts` — `LocationResult`, `LocationSource`
 - `src/types/weather.ts` — `CurrentWeather` (incl. `uvIndex`), `HourlyForecast`, `WeatherData`
@@ -135,10 +138,16 @@ type LocationSource =
 
 ### Header (App.tsx)
 - [x] 상단 타이틀: **Weather Alerts**
-- [x] 타이틀 row: 왼쪽 타이틀 · 오른쪽 **Refresh** chip (`Pressable`, pill 스타일, 테마 `accent`/`cardBackground` 활용)
+- [x] 타이틀 row: 왼쪽 타이틀 · 오른쪽 **Refresh** chip (`Pressable`, pill 스타일, 테마 `accent`/`cardBackground` 활용); **스크롤 시 함께 이동**
+- [x] **접이식 도시명** — Galaxy Weather 스타일; 도시명은 `ScrollView` **내부** 원래 위치에서 시작; 위로 스크롤 시 inline 도시명 fade-out + 상단 sticky bar fade-in (`CollapsingLocationHeader`, `Animated.ScrollView`); 아래로 스크롤 시 원위치 복귀 — **Expo/RN `Animated`만으로 가능**
+
+### CollapsingLocationHeader
+- [x] Scroll content: 도시명 **왼쪽 정렬** + **로컬 시각** (US **`countryCode === US` 제외**; 기기와 날짜 다를 때 `Aug 13 · 2:00 AM`) + `Tap to change city`
+- [x] Sticky overlay: 스크롤 시 inline fade-out → 왼쪽 **2-line chip** (도시명 + 로컬 시각; US는 도시명만) fade-in
+- [x] 도시명 탭 → 도시 검색 모달
 
 ### TodayCard
-- [x] 위치명 탭 → 도시 검색 모달 (`Tap to change city` 힌트)
+- [x] **오늘 요약** — 카드 상단, 날씨 이모지 **위**; Open-Meteo는 텍스트 summary 미제공; `daily[0]` 조건 + high/low로 클라이언트 생성 (`buildTodaySummary`, `weatherSummary.ts`); °F/°C 단위 동기화
 - [x] 날씨 이모지, 조건 라벨 표시
 - [x] 현재 온도 **°F** 기본 표시
 - [x] **온도 탭** → °F ↔ °C 토글
@@ -197,6 +206,7 @@ interface WeatherTheme {
 ### Implementation
 - [x] `WeatherBackground`가 `expo-linear-gradient`로 화면 감싸기
 - [x] `weather.current.condition`에서 테마 파생
+- [x] **로컬 주·야** — Open-Meteo `is_day` + `timezone=auto`로 선택 도시 기준 낮/밤; 밤에는 `nightThemes` (clear → 🌙·어두운 그라데이션)
 - [x] 배경·카드 모두 어두운 톤으로 조정
 - [x] StatusBar: `light` (모든 날씨 조건)
 - [x] 조건 변경 시 배경 그라데이션 crossfade (`Animated` opacity, ~450ms, 두 레이어)
@@ -222,6 +232,7 @@ interface WeatherTheme {
 - [x] Persist last selected unit (°F/°C) in AsyncStorage (`useTemperatureUnit`, `preferencesStorage`)
 - [x] Cold-start preload — cached weather snapshot + background refresh on launch
 - [x] TodayCard UV index — Open-Meteo `uv_index` in detail row with compact level abbrev (`uvIndex.ts`)
+- [x] Collapsing location header — Galaxy-style scroll animation; city sticks at top when scrolling up (`CollapsingLocationHeader`)
 
 ### Next Up (하나씩 진행)
 - [ ] Dark mode system preference support
@@ -252,6 +263,8 @@ npx expo prebuild --clean          # 아이콘/이름/키보드 설정 변경 �
 - [x] Tap refresh chip in header reloads weather
 - [x] TodayCard shows 6 hours of forecast (time, emoji, temp)
 - [x] TodayCard shows UV index with abbreviated level (e.g. `7 (H)`)
+- [x] City name collapses to sticky bar when scrolling up; returns on scroll down
+- [x] Today summary in TodayCard above weather emoji; updates with °F/°C toggle
 - [ ] Background → foreground auto-refresh (disabled; manual Refresh chip only)
 - [x] US locations show NWS active alerts card when alerts exist
 - [x] New alerts on manual refresh trigger local notification (after permission grant)

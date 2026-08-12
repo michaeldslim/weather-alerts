@@ -26,7 +26,8 @@ function isLocationSource(value: unknown): value is LocationSource {
     source.type === 'manual' &&
     typeof source.latitude === 'number' &&
     typeof source.longitude === 'number' &&
-    typeof source.name === 'string'
+    typeof source.name === 'string' &&
+    (source.countryCode === undefined || typeof source.countryCode === 'string')
   );
 }
 

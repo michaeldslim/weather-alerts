@@ -9,6 +9,7 @@ import {
 const HOURLY_FORECAST_COUNT = 6;
 
 interface OpenMeteoResponse {
+  timezone: string;
   current: {
     temperature_2m: number;
     apparent_temperature: number;
@@ -16,6 +17,7 @@ interface OpenMeteoResponse {
     wind_speed_10m: number;
     weather_code: number;
     uv_index: number;
+    is_day: number;
   };
   hourly: {
     time: string[];
@@ -58,13 +60,14 @@ function mapUpcomingHourlyForecasts(
 export async function fetchWeather(
   latitude: number,
   longitude: number,
-  locationName: string
+  locationName: string,
+  countryCode: string
 ): Promise<WeatherData> {
   const params = new URLSearchParams({
     latitude: String(latitude),
     longitude: String(longitude),
     current:
-      'temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,uv_index',
+      'temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,uv_index,is_day',
     hourly: 'temperature_2m,weather_code',
     daily: 'weather_code,temperature_2m_max,temperature_2m_min',
     temperature_unit: 'fahrenheit',
@@ -104,12 +107,15 @@ export async function fetchWeather(
 
   return {
     locationName,
+    timezone: data.timezone,
+    countryCode,
     current: {
       temperature: Math.round(data.current.temperature_2m),
       feelsLike: Math.round(data.current.apparent_temperature),
       humidity: data.current.relative_humidity_2m,
       windSpeed: Math.round(data.current.wind_speed_10m),
       uvIndex: data.current.uv_index,
+      isDay: data.current.is_day === 1,
       condition: currentCondition,
       conditionLabel: getConditionLabel(currentCondition),
     },
