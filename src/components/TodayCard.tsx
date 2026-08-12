@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     opacity: 0.85,
-    textAlign: 'center',
+    textAlign: 'left',
     marginBottom: 4,
   },
   condition: {
