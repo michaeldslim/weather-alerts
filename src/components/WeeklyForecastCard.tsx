@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { DailyForecast } from '../types/weather';
+import { formatDailyPrecipLabel } from '../utils/precipitation';
 import { convertTemperature, TemperatureUnit } from '../utils/temperature';
 import { getWeatherEmoji, getWeatherTheme } from '../utils/weatherTheme';
 
@@ -25,6 +26,15 @@ export function WeeklyForecastCard({
         <View key={day.date} style={styles.row}>
           <Text style={[styles.day, { color: theme.text }]}>{day.dayLabel}</Text>
           <Text style={styles.emoji}>{getWeatherEmoji(day.condition)}</Text>
+          <Text
+            style={[styles.precip, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {formatDailyPrecipLabel(
+              day.precipChancePercent ?? 0,
+              day.precipAmountInches ?? 0
+            )}
+          </Text>
           <View style={styles.tempGroup}>
             <Text style={[styles.low, { color: theme.text }]}>
               {convertTemperature(day.low, unit)}°
@@ -43,6 +53,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 24,
     padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
   },
@@ -60,12 +71,22 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.2)',
   },
   day: {
-    width: 80,
+    width: 56,
     fontSize: 15,
     fontWeight: '500',
   },
   emoji: {
     fontSize: 24,
+    width: 32,
+    textAlign: 'center',
+  },
+  precip: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    opacity: 0.85,
+    paddingHorizontal: 4,
   },
   tempGroup: {
     flexDirection: 'row',
