@@ -17,6 +17,7 @@ import {
   LOCATION_COLLAPSE_END,
 } from './src/components/CollapsingLocationHeader';
 import { LocationSearchModal } from './src/components/LocationSearchModal';
+import { TopScrollFade } from './src/components/TopScrollFade';
 import { TodayCard } from './src/components/TodayCard';
 import { WeatherAlertsCard } from './src/components/WeatherAlertsCard';
 import { WeatherInsightsCard } from './src/components/WeatherInsightsCard';
@@ -105,6 +106,7 @@ export default function App() {
               {...locationHeaderProps}
               stickyActive={locationSticky}
             />
+            <TopScrollFade topColor={theme.gradient[0]} scrollY={scrollY} />
             <Animated.ScrollView
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
