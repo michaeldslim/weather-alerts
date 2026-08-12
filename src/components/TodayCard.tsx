@@ -6,7 +6,6 @@ import {
   formatTemperature,
   TemperatureUnit,
 } from '../utils/temperature';
-import { formatUvIndexWithLevel } from '../utils/uvIndex';
 import { getWeatherEmoji, getWeatherTheme } from '../utils/weatherTheme';
 
 interface TodayCardProps {
@@ -65,12 +64,6 @@ export function TodayCard({
           <Text style={[styles.detailLabel, { color: theme.text }]}>Humidity</Text>
           <Text style={[styles.detailValue, { color: theme.text }]}>
             {current.humidity}%
-          </Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={[styles.detailLabel, { color: theme.text }]}>UV Index</Text>
-          <Text style={[styles.detailValue, { color: theme.text }]}>
-            {formatUvIndexWithLevel(current.uvIndex)}
           </Text>
         </View>
         <View style={styles.detailItem}>

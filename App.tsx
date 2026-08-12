@@ -19,6 +19,7 @@ import {
 import { LocationSearchModal } from './src/components/LocationSearchModal';
 import { TodayCard } from './src/components/TodayCard';
 import { WeatherAlertsCard } from './src/components/WeatherAlertsCard';
+import { WeatherInsightsCard } from './src/components/WeatherInsightsCard';
 import { WeatherBackground } from './src/components/WeatherBackground';
 import { WeeklyForecastCard } from './src/components/WeeklyForecastCard';
 import { useWeather } from './src/hooks/useWeather';
@@ -150,6 +151,14 @@ export default function App() {
                 unit={unit}
                 onToggleUnit={toggleUnit}
               />
+              {weather.insights ? (
+                <WeatherInsightsCard
+                  insights={weather.insights}
+                  timezone={weather.timezone}
+                  uvIndex={weather.current.uvIndex}
+                  theme={theme}
+                />
+              ) : null}
               <WeeklyForecastCard
                 daily={weather.daily}
                 accentCondition={weather.current.condition}
@@ -180,7 +189,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingBottom: 40,
   },
   headerRow: {
