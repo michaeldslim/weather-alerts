@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchWeatherAlerts } from '../services/alertsApi';
+import { fetchAirQuality } from '../services/airQualityApi';
 import { notifyWeatherAlerts } from '../services/notificationService';
 import { fetchWeather } from '../services/weatherApi';
 import {
@@ -133,18 +134,31 @@ export function useWeather(): UseWeatherResult {
         countryCode = gpsLocation.countryCode;
       }
 
-      const [data, alertData] = await Promise.all([
+      const [data, alertData, airQuality] = await Promise.all([
         fetchWeather(latitude, longitude, locationName, countryCode),
         fetchWeatherAlerts(latitude, longitude),
+        fetchAirQuality(latitude, longitude),
       ]);
 
-      weatherRef.current = data;
-      setWeather(data);
+      if (!data.insights) {
+        throw new Error('Missing weather insights');
+      }
+
+      const weatherData: WeatherData = {
+        ...data,
+        insights: {
+          ...data.insights,
+          airQuality,
+        },
+      };
+
+      weatherRef.current = weatherData;
+      setWeather(weatherData);
       setAlerts(alertData);
       handleAlertsUpdate(alertData);
 
       void saveWeatherSnapshot({
-        weather: data,
+        weather: weatherData,
         alerts: alertData,
         locationSource: locationSourceRef.current,
         savedAt: new Date().toISOString(),
