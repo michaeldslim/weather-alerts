@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     alignItems: 'flex-start',
   },
   stickyChip: {
