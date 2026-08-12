@@ -25,6 +25,8 @@ export interface DailyForecast {
   low: number;
   condition: WeatherCondition;
   conditionLabel: string;
+  precipChancePercent?: number;
+  precipAmountInches?: number;
 }
 
 export interface HourlyForecast {
@@ -34,6 +36,24 @@ export interface HourlyForecast {
   condition: WeatherCondition;
 }
 
+export interface SunDaylight {
+  sunrise: string;
+  sunset: string;
+  nextSunrise: string | null;
+  daylightMinutes: number;
+}
+
+export interface AirQuality {
+  aqi: number;
+  category: string;
+  pm25: number;
+}
+
+export interface WeatherInsights {
+  sun: SunDaylight;
+  airQuality: AirQuality | null;
+}
+
 export interface WeatherData {
   locationName: string;
   timezone: string;
@@ -41,4 +61,5 @@ export interface WeatherData {
   current: CurrentWeather;
   hourly: HourlyForecast[];
   daily: DailyForecast[];
+  insights?: WeatherInsights;
 }

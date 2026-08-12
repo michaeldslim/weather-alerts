@@ -1,10 +1,11 @@
-import { HourlyForecast, WeatherData } from '../types/weather';
+import { HourlyForecast, SunDaylight, WeatherData, WeatherInsights } from '../types/weather';
 import {
   formatDayLabel,
   formatHourLabel,
   getConditionLabel,
   weatherCodeToCondition,
 } from '../utils/weatherCode';
+import { computeDaylightMinutes } from '../utils/sunDaylight';
 
 const HOURLY_FORECAST_COUNT = 6;
 
@@ -29,6 +30,10 @@ interface OpenMeteoResponse {
     weather_code: number[];
     temperature_2m_max: number[];
     temperature_2m_min: number[];
+    sunrise: string[];
+    sunset: string[];
+    precipitation_probability_max: number[];
+    precipitation_sum: number[];
   };
 }
 
@@ -57,6 +62,28 @@ function mapUpcomingHourlyForecasts(
   return hourly;
 }
 
+function mapSunDaylight(
+  sunrise: string,
+  sunset: string,
+  nextSunrise: string | null
+): SunDaylight {
+  return {
+    sunrise,
+    sunset,
+    nextSunrise,
+    daylightMinutes: computeDaylightMinutes(sunrise, sunset),
+  };
+}
+
+function mapWeatherInsights(data: OpenMeteoResponse): WeatherInsights {
+  const nextSunrise = data.daily.sunrise[1] ?? null;
+
+  return {
+    sun: mapSunDaylight(data.daily.sunrise[0], data.daily.sunset[0], nextSunrise),
+    airQuality: null,
+  };
+}
+
 export async function fetchWeather(
   latitude: number,
   longitude: number,
@@ -69,9 +96,11 @@ export async function fetchWeather(
     current:
       'temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,uv_index,is_day',
     hourly: 'temperature_2m,weather_code',
-    daily: 'weather_code,temperature_2m_max,temperature_2m_min',
+    daily:
+      'weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max,precipitation_sum',
     temperature_unit: 'fahrenheit',
     wind_speed_unit: 'mph',
+    precipitation_unit: 'inch',
     timezone: 'auto',
     forecast_days: '7',
   });
@@ -96,6 +125,8 @@ export async function fetchWeather(
       low: Math.round(data.daily.temperature_2m_min[index]),
       condition,
       conditionLabel: getConditionLabel(condition),
+      precipChancePercent: Math.round(data.daily.precipitation_probability_max[index]),
+      precipAmountInches: Math.round(data.daily.precipitation_sum[index] * 100) / 100,
     };
   });
 
@@ -121,5 +152,6 @@ export async function fetchWeather(
     },
     hourly,
     daily,
+    insights: mapWeatherInsights(data),
   };
 }
