@@ -118,7 +118,7 @@ type LocationSource =
 - [x] 검색 모달 키보드 대응 (`KeyboardAvoidingView` + 키보드 높이 margin)
 - [x] **Refresh chip** — 앱 타이틀(`Weather Alerts`) **오른쪽** chip 버튼으로 수동 갱신; 탭 시 `useWeather.refresh` 호출; 갱신 중 chip 스피너·비활성화 (초기 로드만 전체 화면 스피너)
 - [ ] 앱 실행 중 이동 시 자동 갱신 없음
-- [ ] **백그라운드 → 포그라운드 복귀** 시 자동 갱신 없음 (비활성화; 수동 Refresh chip만)
+- [x] **백그라운드 → 포그라운드 복귀** 시 `AppState` 리스너로 자동 갱신 (`useWeather`; 초기 로드 완료 후에만; 캐시 있으면 chip 스피너)
 - [ ] 주기적 위치/날씨 갱신 없음
 - [x] **콜드 스타트 캐시** — AsyncStorage에 마지막 weather/alerts/locationSource 저장; 앱 시작 시 즉시 표시 후 백그라운드 refresh (chip 스피너)
 - [ ] 검색 도시 AsyncStorage 저장 없음 (locationSource는 weather snapshot에 포함)
@@ -272,7 +272,6 @@ interface WeatherTheme {
 
 ### Next Up (하나씩 진행)
 - [ ] Dark mode system preference support
-- [ ] App resume refresh — 백그라운드 복귀 시 자동 갱신 (비활성화)
 
 ### Running the App
 ```bash
@@ -303,7 +302,7 @@ npx expo prebuild --clean          # 아이콘/이름/키보드 설정 변경 �
 - [x] Air quality updates on manual Refresh (current model snapshot)
 - [x] City name collapses to sticky bar when scrolling up; returns on scroll down
 - [x] Today summary in TodayCard above weather emoji; updates with °F/°C toggle
-- [ ] Background → foreground auto-refresh (disabled; manual Refresh chip only)
+- [x] Background → foreground auto-refresh (`AppState` in `useWeather`; refresh chip spinner when cached weather shown)
 - [x] US locations show NWS active alerts card when alerts exist
 - [x] New alerts on manual refresh trigger local notification (after permission grant)
 - [ ] App icon visible on native build
