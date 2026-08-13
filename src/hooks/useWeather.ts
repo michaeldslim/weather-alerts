@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { fetchWeatherAlerts } from '../services/alertsApi';
 import { fetchAirQuality } from '../services/airQualityApi';
 import { notifyWeatherAlerts } from '../services/notificationService';
@@ -81,6 +82,8 @@ export function useWeather(): UseWeatherResult {
   const previousAlertIdsRef = useRef<Set<string>>(new Set());
   const skipNextNotificationRef = useRef(true);
   const loadInFlightRef = useRef(false);
+  const initialLoadCompleteRef = useRef(false);
+  const appStateRef = useRef(AppState.currentState);
 
   const handleAlertsUpdate = useCallback((nextAlerts: WeatherAlert[]) => {
     const currentIds = new Set(nextAlerts.map((alert) => alert.id));
@@ -196,11 +199,29 @@ export function useWeather(): UseWeatherResult {
       }
 
       await loadWeatherRef.current();
+      initialLoadCompleteRef.current = true;
     })();
 
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      const previousAppState = appStateRef.current;
+      appStateRef.current = nextAppState;
+
+      if (!initialLoadCompleteRef.current) {
+        return;
+      }
+
+      if (previousAppState.match(/inactive|background/) && nextAppState === 'active') {
+        void loadWeatherRef.current();
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
   const refresh = useCallback(() => loadWeather(), [loadWeather]);
