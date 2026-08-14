@@ -1,4 +1,5 @@
 import { WeatherCondition } from '../types/weather';
+import { getTimezoneCalendarDateKey, parseOpenMeteoLocalTime } from './localTime';
 
 const conditionLabels: Record<WeatherCondition, string> = {
   clear: 'Clear',
@@ -26,18 +27,20 @@ export function getConditionLabel(condition: WeatherCondition): string {
   return conditionLabels[condition];
 }
 
-export function formatDayLabel(dateString: string): string {
-  const date = new Date(`${dateString}T12:00:00`);
-  const today = new Date();
-  today.setHours(12, 0, 0, 0);
+export function formatDayLabel(dateString: string, timezone: string, now = new Date()): string {
+  if (dateString === getTimezoneCalendarDateKey(timezone, now)) {
+    return 'Today';
+  }
 
-  if (date.toDateString() === today.toDateString()) return 'Today';
-
-  return date.toLocaleDateString('en-US', { weekday: 'short' });
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(year, month - 1, day))
+  );
 }
 
-export function formatHourLabel(dateTime: string): string {
-  return new Date(dateTime).toLocaleTimeString('en-US', {
+export function formatHourLabel(dateTime: string, timezone: string): string {
+  return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
-  });
+    timeZone: timezone,
+  }).format(parseOpenMeteoLocalTime(dateTime, timezone));
 }

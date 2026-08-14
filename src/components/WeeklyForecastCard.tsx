@@ -2,10 +2,12 @@ import { StyleSheet, Text, View } from 'react-native';
 import { DailyForecast } from '../types/weather';
 import { formatDailyPrecipLabel } from '../utils/precipitation';
 import { convertTemperature, TemperatureUnit } from '../utils/temperature';
+import { formatDayLabel } from '../utils/weatherCode';
 import { getWeatherEmoji, getWeatherTheme } from '../utils/weatherTheme';
 
 interface WeeklyForecastCardProps {
   daily: DailyForecast[];
+  timezone: string;
   accentCondition: DailyForecast['condition'];
   isDay: boolean;
   unit: TemperatureUnit;
@@ -13,6 +15,7 @@ interface WeeklyForecastCardProps {
 
 export function WeeklyForecastCard({
   daily,
+  timezone,
   accentCondition,
   isDay,
   unit,
@@ -24,7 +27,9 @@ export function WeeklyForecastCard({
       <Text style={[styles.title, { color: theme.text }]}>7-Day Forecast</Text>
       {daily.map((day) => (
         <View key={day.date} style={styles.row}>
-          <Text style={[styles.day, { color: theme.text }]}>{day.dayLabel}</Text>
+          <Text style={[styles.day, { color: theme.text }]}>
+            {formatDayLabel(day.date, timezone)}
+          </Text>
           <Text style={styles.emoji}>{getWeatherEmoji(day.condition)}</Text>
           <Text
             style={[styles.precip, { color: theme.text }]}

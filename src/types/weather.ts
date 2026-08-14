@@ -20,7 +20,6 @@ export interface CurrentWeather {
 
 export interface DailyForecast {
   date: string;
-  dayLabel: string;
   high: number;
   low: number;
   condition: WeatherCondition;
@@ -31,7 +30,6 @@ export interface DailyForecast {
 
 export interface HourlyForecast {
   time: string;
-  hourLabel: string;
   temperature: number;
   condition: WeatherCondition;
 }

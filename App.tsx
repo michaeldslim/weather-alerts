@@ -150,6 +150,7 @@ export default function App() {
                 summary={todaySummary}
                 current={weather.current}
                 hourly={weather.hourly}
+                timezone={weather.timezone}
                 unit={unit}
                 onToggleUnit={toggleUnit}
               />
@@ -163,6 +164,7 @@ export default function App() {
               ) : null}
               <WeeklyForecastCard
                 daily={weather.daily}
+                timezone={weather.timezone}
                 accentCondition={weather.current.condition}
                 isDay={weather.current.isDay}
                 unit={unit}

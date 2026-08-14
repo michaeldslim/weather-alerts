@@ -7,11 +7,13 @@ import {
   TemperatureUnit,
 } from '../utils/temperature';
 import { getWeatherEmoji, getWeatherTheme } from '../utils/weatherTheme';
+import { formatHourLabel } from '../utils/weatherCode';
 
 interface TodayCardProps {
   summary: string;
   current: CurrentWeather;
   hourly: HourlyForecast[];
+  timezone: string;
   unit: TemperatureUnit;
   onToggleUnit: () => void;
 }
@@ -20,6 +22,7 @@ export function TodayCard({
   summary,
   current,
   hourly,
+  timezone,
   unit,
   onToggleUnit,
 }: TodayCardProps) {
@@ -81,7 +84,7 @@ export function TodayCard({
             return (
               <View key={hour.time} style={styles.hourlyItem}>
                 <Text style={[styles.hourlyLabel, { color: theme.text }]}>
-                  {hour.hourLabel}
+                  {formatHourLabel(hour.time, timezone)}
                 </Text>
                 <Text style={styles.hourlyEmoji}>{getWeatherEmoji(hour.condition)}</Text>
                 <Text style={[styles.hourlyTemp, { color: theme.text }]}>

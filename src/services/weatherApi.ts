@@ -1,10 +1,6 @@
 import { HourlyForecast, SunDaylight, WeatherData, WeatherInsights } from '../types/weather';
-import {
-  formatDayLabel,
-  formatHourLabel,
-  getConditionLabel,
-  weatherCodeToCondition,
-} from '../utils/weatherCode';
+import { parseOpenMeteoLocalTime } from '../utils/localTime';
+import { getConditionLabel, weatherCodeToCondition } from '../utils/weatherCode';
 import { computeDaylightMinutes } from '../utils/sunDaylight';
 
 const HOURLY_FORECAST_COUNT = 6;
@@ -40,20 +36,20 @@ interface OpenMeteoResponse {
 function mapUpcomingHourlyForecasts(
   times: string[],
   temperatures: number[],
-  weatherCodes: number[]
+  weatherCodes: number[],
+  timezone: string
 ): HourlyForecast[] {
   const now = Date.now();
   const hourly: HourlyForecast[] = [];
 
   for (let i = 0; i < times.length && hourly.length < HOURLY_FORECAST_COUNT; i++) {
-    if (new Date(times[i]).getTime() <= now) {
+    if (parseOpenMeteoLocalTime(times[i], timezone).getTime() <= now) {
       continue;
     }
 
     const condition = weatherCodeToCondition(weatherCodes[i]);
     hourly.push({
       time: times[i],
-      hourLabel: formatHourLabel(times[i]),
       temperature: Math.round(temperatures[i]),
       condition,
     });
@@ -120,7 +116,6 @@ export async function fetchWeather(
     const condition = weatherCodeToCondition(data.daily.weather_code[index]);
     return {
       date,
-      dayLabel: formatDayLabel(date),
       high: Math.round(data.daily.temperature_2m_max[index]),
       low: Math.round(data.daily.temperature_2m_min[index]),
       condition,
@@ -133,7 +128,8 @@ export async function fetchWeather(
   const hourly = mapUpcomingHourlyForecasts(
     data.hourly.time,
     data.hourly.temperature_2m,
-    data.hourly.weather_code
+    data.hourly.weather_code,
+    data.timezone
   );
 
   return {
