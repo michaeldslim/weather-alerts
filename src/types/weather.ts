@@ -32,6 +32,7 @@ export interface HourlyForecast {
   time: string;
   temperature: number;
   condition: WeatherCondition;
+  isDay: boolean;
 }
 
 export interface SunDaylight {

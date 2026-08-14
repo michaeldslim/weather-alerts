@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { DailyForecast } from '../types/weather';
+import { getTimezoneCalendarDateKey } from '../utils/localTime';
 import { formatDailyPrecipLabel } from '../utils/precipitation';
 import { convertTemperature, TemperatureUnit } from '../utils/temperature';
 import { formatDayLabel } from '../utils/weatherCode';
@@ -21,16 +22,20 @@ export function WeeklyForecastCard({
   unit,
 }: WeeklyForecastCardProps) {
   const theme = getWeatherTheme(accentCondition, isDay);
+  const cityToday = getTimezoneCalendarDateKey(timezone);
 
   return (
     <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
       <Text style={[styles.title, { color: theme.text }]}>7-Day Forecast</Text>
-      {daily.map((day) => (
+      {daily.map((day) => {
+        const dayIsDay = day.date === cityToday ? isDay : true;
+
+        return (
         <View key={day.date} style={styles.row}>
           <Text style={[styles.day, { color: theme.text }]}>
             {formatDayLabel(day.date, timezone)}
           </Text>
-          <Text style={styles.emoji}>{getWeatherEmoji(day.condition)}</Text>
+          <Text style={styles.emoji}>{getWeatherEmoji(day.condition, dayIsDay)}</Text>
           <Text
             style={[styles.precip, { color: theme.text }]}
             numberOfLines={1}
@@ -49,7 +54,8 @@ export function WeeklyForecastCard({
             </Text>
           </View>
         </View>
-      ))}
+        );
+      })}
     </View>
   );
 }

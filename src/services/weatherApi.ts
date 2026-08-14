@@ -20,6 +20,7 @@ interface OpenMeteoResponse {
     time: string[];
     temperature_2m: number[];
     weather_code: number[];
+    is_day: number[];
   };
   daily: {
     time: string[];
@@ -37,6 +38,7 @@ function mapUpcomingHourlyForecasts(
   times: string[],
   temperatures: number[],
   weatherCodes: number[],
+  isDayFlags: number[],
   timezone: string
 ): HourlyForecast[] {
   const now = Date.now();
@@ -52,6 +54,7 @@ function mapUpcomingHourlyForecasts(
       time: times[i],
       temperature: Math.round(temperatures[i]),
       condition,
+      isDay: isDayFlags[i] === 1,
     });
   }
 
@@ -91,7 +94,7 @@ export async function fetchWeather(
     longitude: String(longitude),
     current:
       'temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,uv_index,is_day',
-    hourly: 'temperature_2m,weather_code',
+    hourly: 'temperature_2m,weather_code,is_day',
     daily:
       'weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max,precipitation_sum',
     temperature_unit: 'fahrenheit',
@@ -129,6 +132,7 @@ export async function fetchWeather(
     data.hourly.time,
     data.hourly.temperature_2m,
     data.hourly.weather_code,
+    data.hourly.is_day,
     data.timezone
   );
 

@@ -86,7 +86,9 @@ export function TodayCard({
                 <Text style={[styles.hourlyLabel, { color: theme.text }]}>
                   {formatHourLabel(hour.time, timezone)}
                 </Text>
-                <Text style={styles.hourlyEmoji}>{getWeatherEmoji(hour.condition)}</Text>
+                <Text style={styles.hourlyEmoji}>
+                  {getWeatherEmoji(hour.condition, hour.isDay ?? true)}
+                </Text>
                 <Text style={[styles.hourlyTemp, { color: theme.text }]}>
                   {formatTemperature(displayHourTemp, unit)}
                 </Text>
