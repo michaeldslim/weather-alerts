@@ -6,6 +6,7 @@ import {
   formatTemperature,
   TemperatureUnit,
 } from '../utils/temperature';
+import { formatWindSpeed } from '../utils/wind';
 import { getWeatherEmoji, getWeatherTheme } from '../utils/weatherTheme';
 import { formatHourLabel } from '../utils/weatherCode';
 
@@ -72,7 +73,7 @@ export function TodayCard({
         <View style={styles.detailItem}>
           <Text style={[styles.detailLabel, { color: theme.text }]}>Wind</Text>
           <Text style={[styles.detailValue, { color: theme.text }]}>
-            {current.windSpeed} mph
+            {formatWindSpeed(current.windSpeed, unit)}
           </Text>
         </View>
       </View>

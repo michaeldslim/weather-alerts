@@ -42,7 +42,8 @@ export function WeeklyForecastCard({
           >
             {formatDailyPrecipLabel(
               day.precipChancePercent ?? 0,
-              day.precipAmountInches ?? 0
+              day.precipAmountInches ?? 0,
+              unit
             )}
           </Text>
           <View style={styles.tempGroup}>

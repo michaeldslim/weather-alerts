@@ -1,6 +1,21 @@
-export function formatPrecipitationAmount(inches: number): string {
+import { TemperatureUnit } from './temperature';
+
+const INCHES_TO_MM = 25.4;
+
+export function formatPrecipitationAmount(
+  inches: number,
+  unit: TemperatureUnit = 'F'
+): string {
   if (inches < 0.05) {
     return 'Trace';
+  }
+
+  if (unit === 'C') {
+    const millimeters = inches * INCHES_TO_MM;
+    if (millimeters < 2.5) {
+      return '< 1 mm';
+    }
+    return `${millimeters.toFixed(1)} mm`;
   }
 
   if (inches < 0.1) {
@@ -16,7 +31,8 @@ export function formatPrecipitationChance(chancePercent: number): string {
 
 export function formatDailyPrecipLabel(
   chancePercent: number,
-  amountInches: number
+  amountInches: number,
+  unit: TemperatureUnit = 'F'
 ): string {
   if (chancePercent <= 0 && amountInches < 0.05) {
     return '—';
@@ -27,5 +43,5 @@ export function formatDailyPrecipLabel(
     return chance;
   }
 
-  return `${chance} · ${formatPrecipitationAmount(amountInches)}`;
+  return `${chance} · ${formatPrecipitationAmount(amountInches, unit)}`;
 }
