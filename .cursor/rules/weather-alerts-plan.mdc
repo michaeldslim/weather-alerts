@@ -138,7 +138,8 @@ type LocationSource =
 - `src/hooks/useLocalTime.ts` — live local clock for selected city timezone
 - `src/utils/localTime.ts` — `formatLocalTime`, `getTimezoneCalendarDateKey`, `parseOpenMeteoLocalTime` (Open-Meteo wall-clock → UTC)
 - `src/utils/sunDaylight.ts` — sunrise/sunset formatting, daylight duration, sun status label
-- `src/utils/precipitation.ts` — precip chance/amount labels for 7-day rows
+- `src/utils/precipitation.ts` — precip chance/amount labels for 7-day rows (inch or mm by unit)
+- `src/utils/wind.ts` — mph ↔ km/h conversion and labels tied to °F/°C toggle
 - `src/utils/airQuality.ts` — US AQI category, accent colors, scale segments
 - `src/services/geocodingApi.ts` — global city search (no country filter)
 - `src/hooks/useWeather.ts` — GPS / manual `LocationSource`, loading/error, fetch on start, `refresh`, `AppState` resume refresh, alerts + air quality + notifications, cold-start cache
@@ -182,7 +183,7 @@ Alerts (conditional) → **Today** → **Outlook** → **7-Day Forecast**
 - [x] 날씨 이모지, 조건 라벨 표시
 - [x] 현재 온도 **°F** 기본 표시
 - [x] **온도 탭** → °F ↔ °C 토글
-- [x] 체감온도, 습도, 풍속 detail row (3열) — **UV Index는 Outlook 카드로 이동**
+- [x] 체감온도, 습도, 풍속 detail row (3열) — **UV Index는 Outlook 카드로 이동**; **풍속은 °C 시 km/h** (`formatWindSpeed`, `wind.ts`)
 - [x] 어두운 반투명 카드 스타일
 - [x] 카드 높이 축소 (패딩·폰트·이모지 크기 조정)
 - [x] **시간별 예보 row** — 현재 시각 기준 **6시간** (시간 라벨 · 이모지 · 온도); API `hourly` 응답에서 현재 이후 6개 슬롯 사용; °F/°C 단위 TodayCard와 동기화; **시간 라벨은 `weather.timezone` 기준 render 시 포맷** (`formatHourLabel`); **이모지는 hourly `is_day` 반영** (맑은 밤 → 🌙)
@@ -196,7 +197,7 @@ Alerts (conditional) → **Today** → **Outlook** → **7-Day Forecast**
 ### WeeklyForecastCard
 - [x] 제목: "7-Day Forecast"
 - [x] 각 row: **요일 | 날씨 이모지 | 강수 | 최저 / 최고 기온**
-- [x] 강수 열 — `formatDailyPrecipLabel`: chance % · amount (`Trace` / `< 0.1 in` / `X.X in`); 없으면 `—`
+- [x] 강수 열 — `formatDailyPrecipLabel`: chance % · amount (`Trace` / `< 0.1 in` / `X.X in` 또는 °C 시 mm); 없으면 `—`; **`unit` prop으로 inch/mm 동기화**
 - [x] `DailyForecast.precipChancePercent`, `precipAmountInches` (optional — stale cache 호환)
 - [x] 요일 라벨: 오늘만 **Today**, 나머지는 요일 약어 (Sat, Sun, Mon …); **도시 `timezone` 기준 “Today” 판별** (`formatDayLabel` at render); **Today row 이모지는 `current.isDay`** (맑은 밤 → 🌙), 이후 날짜는 주간(낮) 아이콘
 - [x] 기온 순서: **최저 → 최고** (최저는 연하게, 최고는 진하게)
@@ -285,8 +286,8 @@ interface WeatherTheme {
 - [x] **Night emojis in hourly & 7-day rows** — hourly API `is_day` → `HourlyForecast.isDay`; Today row는 `current.isDay`; `getWeatherEmoji(condition, isDay)` (`TodayCard`, `WeeklyForecastCard`, `weatherApi.ts`)
 
 #### Unit consistency (°C 모드)
-- [ ] **Metric wind** — `TodayCard` wind 항상 `{windSpeed} mph`; °C 선택 시 km/h 변환·라벨 (`TodayCard.tsx`, wind helper)
-- [ ] **Metric precipitation** — `formatDailyPrecipLabel` / weekly row 항상 inch; °C 시 mm 표시 (`precipitation.ts`, `WeeklyForecastCard`, `App.tsx`에 `unit` 전달)
+- [x] **Metric wind** — `TodayCard` wind; °C 선택 시 km/h (`formatWindSpeed`, `wind.ts`)
+- [x] **Metric precipitation** — `formatDailyPrecipLabel` / weekly row; °C 시 mm (`precipitation.ts`, `WeeklyForecastCard`)
 
 #### UX & polish
 - [ ] **Silent refresh failure** — 캐시 있을 때 `loadWeather` 실패 시 `error` 미설정 (`useWeather.ts` L169–172) → transient banner 또는 `refreshError` state
@@ -316,8 +317,8 @@ interface WeatherTheme {
 |-------|--------|-------|
 | ~~Hourly labels use device TZ~~ | ~~`formatHourLabel`~~ | **Fixed** — render-time `formatHourLabel(time, timezone)` |
 | ~~“Today” uses device date~~ | ~~`formatDayLabel`~~ | **Fixed** — `getTimezoneCalendarDateKey` for Today |
-| Wind always mph | `TodayCard.tsx` | °C toggle과 무관 |
-| Precip always inches | `precipitation.ts`, `WeeklyForecastCard` | °C toggle과 무관 |
+| ~~Wind always mph~~ | `TodayCard.tsx` | **Fixed** — `formatWindSpeed` (km/h when °C) |
+| ~~Precip always inches~~ | `precipitation.ts`, `WeeklyForecastCard` | **Fixed** — mm when °C |
 | ~~Clear night shows ☀️ in rows~~ | hourly + 7-day emoji | **Fixed** — hourly `is_day`; Today row uses `current.isDay` |
 | Stale data, failed refresh | `useWeather.ts` | 캐시 유지 + 사용자 피드백 없음 |
 | Search stale results | `LocationSearchModal.tsx` | 느린 응답이 최신 query 덮어쓸 수 있음 |
@@ -358,7 +359,7 @@ npx expo prebuild --clean          # 아이콘/이름/키보드 설정 변경 �
 - [ ] App icon visible on native build
 - [x] Remote city: hourly labels match city timezone (not device)
 - [x] Remote city: correct “Today” row near timezone midnight
-- [ ] °C mode: wind in km/h, precip in mm
+- [x] °C mode: wind in km/h, precip in mm
 - [x] Clear night: moon emoji in hourly and 7-day rows
 - [ ] Failed refresh with cached data shows user-visible message
 - [ ] City search: stale API response does not overwrite newer query
