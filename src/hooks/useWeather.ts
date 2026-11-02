@@ -11,17 +11,49 @@ import {
 } from '../services/weatherCacheStorage';
 import { WeatherAlert } from '../types/alert';
 import {
-  formatLocationLabel,
+  loadSavedCities,
+  removeSavedCityById,
+  saveSavedCities,
+  upsertSavedCity,
+} from '../services/savedCitiesStorage';
+import {
+  locationSourceCacheKey,
+  locationSourcesEqual,
   LocationResult,
   LocationSource,
+  SavedCity,
+  savedCityFromLocationResult,
+  savedCityToManualSource,
 } from '../types/location';
 import { WeatherData } from '../types/weather';
+import { buildCityRotation, findRotationIndex } from '../utils/cityRotation';
 
 const DEFAULT_LOCATION = {
   latitude: 40.7128,
   longitude: -74.006,
   name: 'New York',
 };
+
+/** Max wait for a fresh GPS fix before using NYC fallback (simulator / no signal). */
+const GPS_FIX_TIMEOUT_MS = 5_000;
+const REVERSE_GEOCODE_TIMEOUT_MS = 4_000;
+
+type ResolvedLocation = {
+  latitude: number;
+  longitude: number;
+  name: string;
+  countryCode: string;
+};
+
+function rejectAfter(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('timeout')), ms);
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([promise, rejectAfter(ms)]);
+}
 
 interface UseWeatherResult {
   weather: WeatherData | null;
@@ -30,44 +62,86 @@ interface UseWeatherResult {
   refreshing: boolean;
   error: string | null;
   locationSource: LocationSource;
+  savedCities: SavedCity[];
+  cityRotationCount: number;
+  cityRotationIndex: number;
+  canSwipeCities: boolean;
+  cityRotation: LocationSource[];
+  getCityPageData: (source: LocationSource) => {
+    weather: WeatherData | null;
+    alerts: WeatherAlert[];
+    isActive: boolean;
+  };
   refresh: () => Promise<void>;
-  selectLocation: (location: LocationResult) => Promise<void>;
+  selectLocation: (location: LocationResult, saveToList: boolean) => Promise<void>;
+  selectSavedCity: (city: SavedCity) => Promise<void>;
+  removeSavedCity: (cityId: number) => Promise<void>;
   useCurrentLocation: () => Promise<void>;
+  goToCityAtIndex: (index: number) => Promise<void>;
 }
 
-async function resolveGpsLocation(): Promise<{
-  latitude: number;
-  longitude: number;
-  name: string;
-  countryCode: string;
-}> {
-  let latitude = DEFAULT_LOCATION.latitude;
-  let longitude = DEFAULT_LOCATION.longitude;
-  let locationName = DEFAULT_LOCATION.name;
-  let countryCode = 'US';
+function getFallbackLocation(): ResolvedLocation {
+  return {
+    latitude: DEFAULT_LOCATION.latitude,
+    longitude: DEFAULT_LOCATION.longitude,
+    name: DEFAULT_LOCATION.name,
+    countryCode: 'US',
+  };
+}
 
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  if (status === 'granted') {
-    const position =
-      (await Location.getLastKnownPositionAsync({ maxAge: 600_000 })) ??
-      (await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      }));
+async function labelGpsCoordinates(
+  latitude: number,
+  longitude: number,
+  fallback: ResolvedLocation
+): Promise<ResolvedLocation> {
+  let locationName = fallback.name;
+  let countryCode = fallback.countryCode;
 
-    latitude = position.coords.latitude;
-    longitude = position.coords.longitude;
-
-    const [place] = await Location.reverseGeocodeAsync({
-      latitude,
-      longitude,
-    });
+  try {
+    const [place] = await withTimeout(
+      Location.reverseGeocodeAsync({ latitude, longitude }),
+      REVERSE_GEOCODE_TIMEOUT_MS
+    );
     if (place) {
       locationName = place.city ?? place.subregion ?? place.region ?? locationName;
       countryCode = place.isoCountryCode ?? countryCode;
+    } else {
+      locationName = `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
     }
+  } catch {
+    locationName = `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
   }
 
   return { latitude, longitude, name: locationName, countryCode };
+}
+
+async function resolveGpsLocation(): Promise<ResolvedLocation> {
+  const fallback = getFallbackLocation();
+
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      return fallback;
+    }
+
+    const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 600_000 });
+    if (lastKnown) {
+      const { latitude, longitude } = lastKnown.coords;
+      return labelGpsCoordinates(latitude, longitude, fallback);
+    }
+
+    const position = await withTimeout(
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Low,
+      }),
+      GPS_FIX_TIMEOUT_MS
+    );
+
+    const { latitude, longitude } = position.coords;
+    return labelGpsCoordinates(latitude, longitude, fallback);
+  } catch {
+    return fallback;
+  }
 }
 
 export function useWeather(): UseWeatherResult {
@@ -77,7 +151,14 @@ export function useWeather(): UseWeatherResult {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locationSource, setLocationSource] = useState<LocationSource>({ type: 'gps' });
+  const [savedCities, setSavedCities] = useState<SavedCity[]>([]);
   const locationSourceRef = useRef<LocationSource>({ type: 'gps' });
+  const savedCitiesRef = useRef<SavedCity[]>([]);
+  const weatherCacheRef = useRef<
+    Map<string, { weather: WeatherData; alerts: WeatherAlert[] }>
+  >(new Map());
+  /** Cache key for the city currently shown in `weather` state (avoids stale cross-city flash). */
+  const weatherSourceKeyRef = useRef<string | null>(null);
   const weatherRef = useRef<WeatherData | null>(null);
   const previousAlertIdsRef = useRef<Set<string>>(new Set());
   const skipNextNotificationRef = useRef(true);
@@ -159,6 +240,12 @@ export function useWeather(): UseWeatherResult {
       setWeather(weatherData);
       setAlerts(alertData);
       handleAlertsUpdate(alertData);
+      const loadedKey = locationSourceCacheKey(locationSourceRef.current);
+      weatherSourceKeyRef.current = loadedKey;
+      weatherCacheRef.current.set(loadedKey, {
+        weather: weatherData,
+        alerts: alertData,
+      });
 
       void saveWeatherSnapshot({
         weather: weatherData,
@@ -180,14 +267,48 @@ export function useWeather(): UseWeatherResult {
   const loadWeatherRef = useRef(loadWeather);
   loadWeatherRef.current = loadWeather;
 
+  const persistSavedCities = useCallback((cities: SavedCity[]) => {
+    savedCitiesRef.current = cities;
+    setSavedCities(cities);
+    void saveSavedCities(cities);
+  }, []);
+
+  const applyLocationSource = useCallback(
+    async (source: LocationSource) => {
+      locationSourceRef.current = source;
+      skipNextNotificationRef.current = true;
+
+      const sourceKey = locationSourceCacheKey(source);
+      const cached = weatherCacheRef.current.get(sourceKey);
+      if (cached) {
+        weatherRef.current = cached.weather;
+        weatherSourceKeyRef.current = sourceKey;
+        setWeather(cached.weather);
+        setAlerts(cached.alerts);
+      } else {
+        weatherSourceKeyRef.current = null;
+      }
+
+      setLocationSource(source);
+      await loadWeather();
+    },
+    [loadWeather]
+  );
+
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
-      const snapshot = await loadWeatherSnapshot();
+      const [snapshot, storedCities] = await Promise.all([
+        loadWeatherSnapshot(),
+        loadSavedCities(),
+      ]);
       if (cancelled) {
         return;
       }
+
+      savedCitiesRef.current = storedCities;
+      setSavedCities(storedCities);
 
       if (snapshot) {
         weatherRef.current = snapshot.weather;
@@ -195,6 +316,12 @@ export function useWeather(): UseWeatherResult {
         setAlerts(snapshot.alerts);
         locationSourceRef.current = snapshot.locationSource;
         setLocationSource(snapshot.locationSource);
+        const snapshotKey = locationSourceCacheKey(snapshot.locationSource);
+        weatherSourceKeyRef.current = snapshotKey;
+        weatherCacheRef.current.set(snapshotKey, {
+          weather: snapshot.weather,
+          alerts: snapshot.alerts,
+        });
         setLoading(false);
       }
 
@@ -227,29 +354,93 @@ export function useWeather(): UseWeatherResult {
   const refresh = useCallback(() => loadWeather(), [loadWeather]);
 
   const selectLocation = useCallback(
-    async (location: LocationResult) => {
-      const manualSource: LocationSource = {
-        type: 'manual',
-        latitude: location.latitude,
-        longitude: location.longitude,
-        name: formatLocationLabel(location),
-        countryCode: location.countryCode,
-      };
-      locationSourceRef.current = manualSource;
-      setLocationSource(manualSource);
-      skipNextNotificationRef.current = true;
-      await loadWeather();
+    async (location: LocationResult, saveToList: boolean) => {
+      const city = savedCityFromLocationResult(location);
+      if (saveToList) {
+        const nextSaved = upsertSavedCity(savedCitiesRef.current, city);
+        persistSavedCities(nextSaved);
+      }
+      await applyLocationSource(savedCityToManualSource(city));
     },
-    [loadWeather]
+    [applyLocationSource, persistSavedCities]
+  );
+
+  const selectSavedCity = useCallback(
+    async (city: SavedCity) => {
+      await applyLocationSource(savedCityToManualSource(city));
+    },
+    [applyLocationSource]
+  );
+
+  const removeSavedCity = useCallback(
+    async (cityId: number) => {
+      const removed = savedCitiesRef.current.find((city) => city.id === cityId);
+      if (!removed) {
+        return;
+      }
+
+      const nextSaved = removeSavedCityById(savedCitiesRef.current, cityId);
+      persistSavedCities(nextSaved);
+      weatherCacheRef.current.delete(locationSourceCacheKey(savedCityToManualSource(removed)));
+
+      if (locationSourcesEqual(locationSourceRef.current, savedCityToManualSource(removed))) {
+        await applyLocationSource({ type: 'gps' });
+      }
+    },
+    [applyLocationSource, persistSavedCities]
   );
 
   const useCurrentLocation = useCallback(async () => {
-    const gpsSource: LocationSource = { type: 'gps' };
-    locationSourceRef.current = gpsSource;
-    setLocationSource(gpsSource);
-    skipNextNotificationRef.current = true;
-    await loadWeather();
-  }, [loadWeather]);
+    await applyLocationSource({ type: 'gps' });
+  }, [applyLocationSource]);
+
+  const goToCityAtIndex = useCallback(
+    async (index: number) => {
+      const rotation = buildCityRotation(
+        savedCitiesRef.current,
+        locationSourceRef.current
+      );
+      const source = rotation[index];
+      if (!source || locationSourcesEqual(source, locationSourceRef.current)) {
+        return;
+      }
+
+      await applyLocationSource(source);
+    },
+    [applyLocationSource]
+  );
+
+  const cityRotation = buildCityRotation(savedCities, locationSource);
+  const cityRotationIndex = findRotationIndex(cityRotation, locationSource);
+  const cityRotationCount = cityRotation.length;
+  const canSwipeCities = cityRotationCount > 1;
+
+  const getCityPageData = useCallback(
+    (source: LocationSource) => {
+      const sourceKey = locationSourceCacheKey(source);
+      const cached = weatherCacheRef.current.get(sourceKey);
+      const isActive = locationSourcesEqual(source, locationSource);
+
+      if (isActive) {
+        if (weather && weatherSourceKeyRef.current === sourceKey) {
+          return { weather, alerts, isActive: true };
+        }
+
+        if (cached) {
+          return { weather: cached.weather, alerts: cached.alerts, isActive: true };
+        }
+
+        return { weather: null, alerts: [], isActive: true };
+      }
+
+      return {
+        weather: cached?.weather ?? null,
+        alerts: cached?.alerts ?? [],
+        isActive: false,
+      };
+    },
+    [alerts, locationSource, weather]
+  );
 
   return {
     weather,
@@ -258,8 +449,17 @@ export function useWeather(): UseWeatherResult {
     refreshing,
     error,
     locationSource,
+    savedCities,
+    cityRotationCount,
+    cityRotationIndex,
+    canSwipeCities,
+    cityRotation,
+    getCityPageData,
     refresh,
     selectLocation,
+    selectSavedCity,
+    removeSavedCity,
     useCurrentLocation,
+    goToCityAtIndex,
   };
 }
