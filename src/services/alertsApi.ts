@@ -1,6 +1,6 @@
 import { WeatherAlert, WeatherAlertSeverity } from '../types/alert';
 
-const NWS_USER_AGENT = 'Weather Alerts/1.3.0 (com.mike008.weatheralerts)';
+const NWS_USER_AGENT = 'Weather Alerts/1.5.0 (com.mike008.weatheralerts)';
 
 const SEVERITY_ORDER: Record<WeatherAlertSeverity, number> = {
   Extreme: 0,

@@ -92,7 +92,7 @@ eas build --platform android --profile production
 eas update --channel production
 ```
 
-`runtimeVersion` in `app.json` must be set manually (e.g. `"1.3.0"`) and kept in sync with native builds.
+`runtimeVersion` in `app.json` must be set manually (e.g. `"1.5.0"`) and kept in sync with native builds.
 
 ## Roadmap
 
