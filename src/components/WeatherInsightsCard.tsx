@@ -33,7 +33,7 @@ export function WeatherInsightsCard({
   theme,
 }: WeatherInsightsCardProps) {
   const { sun, airQuality } = insights;
-  const sunStatus = buildSunStatus(sun.sunrise, sun.sunset, sun.nextSunrise);
+  const sunStatus = buildSunStatus(sun.sunrise, sun.sunset, sun.nextSunrise, timezone);
   const roundedUv = Math.round(uvIndex);
   const uvCategory = getUvIndexCategory(uvIndex);
   const uvAccent = getUvIndexAccent(uvIndex);

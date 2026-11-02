@@ -64,13 +64,14 @@ function mapUpcomingHourlyForecasts(
 function mapSunDaylight(
   sunrise: string,
   sunset: string,
-  nextSunrise: string | null
+  nextSunrise: string | null,
+  timezone: string
 ): SunDaylight {
   return {
     sunrise,
     sunset,
     nextSunrise,
-    daylightMinutes: computeDaylightMinutes(sunrise, sunset),
+    daylightMinutes: computeDaylightMinutes(sunrise, sunset, timezone),
   };
 }
 
@@ -78,7 +79,12 @@ function mapWeatherInsights(data: OpenMeteoResponse): WeatherInsights {
   const nextSunrise = data.daily.sunrise[1] ?? null;
 
   return {
-    sun: mapSunDaylight(data.daily.sunrise[0], data.daily.sunset[0], nextSunrise),
+    sun: mapSunDaylight(
+      data.daily.sunrise[0],
+      data.daily.sunset[0],
+      nextSunrise,
+      data.timezone
+    ),
     airQuality: null,
   };
 }
