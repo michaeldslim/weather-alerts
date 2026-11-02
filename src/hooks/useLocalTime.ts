@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { formatLocalTime } from '../utils/localTime';
+import { formatLocalTime, msUntilNextMinuteInTimezone } from '../utils/localTime';
 
 export function useLocalTime(timezone: string | undefined): string {
   const [localTime, setLocalTime] = useState(() =>
@@ -12,12 +12,24 @@ export function useLocalTime(timezone: string | undefined): string {
       return;
     }
 
-    setLocalTime(formatLocalTime(timezone));
-    const timer = setInterval(() => {
+    const tick = () => {
       setLocalTime(formatLocalTime(timezone));
-    }, 60_000);
+    };
 
-    return () => clearInterval(timer);
+    tick();
+
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    const timeoutId = setTimeout(() => {
+      tick();
+      intervalId = setInterval(tick, 60_000);
+    }, msUntilNextMinuteInTimezone(timezone));
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (intervalId !== undefined) {
+        clearInterval(intervalId);
+      }
+    };
   }, [timezone]);
 
   return localTime;

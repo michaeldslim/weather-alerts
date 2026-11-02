@@ -11,7 +11,6 @@ export const LOCATION_COLLAPSE_END = 72;
 interface CollapsingLocationHeaderProps {
   locationName: string;
   timezone: string;
-  showLocalTime: boolean;
   textColor: string;
   accentColor: string;
   cardBackground: string;
@@ -43,19 +42,18 @@ function useCollapseAnimation(scrollY: Animated.Value) {
 export function CollapsingLocationHeaderScrollContent({
   locationName,
   timezone,
-  showLocalTime,
   textColor,
   scrollY,
   onPress,
 }: CollapsingLocationHeaderProps) {
   const { inlineOpacity } = useCollapseAnimation(scrollY);
-  const localTime = useLocalTime(showLocalTime ? timezone : undefined);
+  const localTime = useLocalTime(timezone);
 
   return (
     <Animated.View style={[styles.inlineContainer, { opacity: inlineOpacity }]}>
       <Pressable onPress={onPress} style={styles.inlinePressable}>
         <Text style={[styles.inlineLocation, { color: textColor }]}>{locationName}</Text>
-        {showLocalTime && localTime.length > 0 && (
+        {localTime.length > 0 && (
           <Text style={[styles.localTime, { color: textColor }]}>{localTime}</Text>
         )}
         <Text style={[styles.hint, { color: textColor }]}>Tap to change city</Text>
@@ -72,7 +70,6 @@ interface CollapsingLocationHeaderStickyProps extends CollapsingLocationHeaderPr
 export function CollapsingLocationHeaderStickyOverlay({
   locationName,
   timezone,
-  showLocalTime,
   textColor,
   accentColor,
   cardBackground,
@@ -81,7 +78,7 @@ export function CollapsingLocationHeaderStickyOverlay({
   onPress,
 }: CollapsingLocationHeaderStickyProps) {
   const { stickyOpacity, stickyTranslateY } = useCollapseAnimation(scrollY);
-  const localTime = useLocalTime(showLocalTime ? timezone : undefined);
+  const localTime = useLocalTime(timezone);
 
   return (
     <Animated.View
@@ -94,7 +91,7 @@ export function CollapsingLocationHeaderStickyOverlay({
           style={[styles.stickyChip, { backgroundColor: cardBackground }]}
           accessibilityRole="button"
           accessibilityLabel={
-            showLocalTime && localTime.length > 0
+            localTime.length > 0
               ? `${locationName}, ${localTime}. Tap to change city`
               : `${locationName}. Tap to change city`
           }
@@ -102,7 +99,7 @@ export function CollapsingLocationHeaderStickyOverlay({
           <Text style={[styles.stickyChipCity, { color: accentColor }]} numberOfLines={1}>
             {locationName}
           </Text>
-          {showLocalTime && localTime.length > 0 && (
+          {localTime.length > 0 && (
             <Text style={[styles.stickyChipTime, { color: textColor }]}>{localTime}</Text>
           )}
         </Pressable>

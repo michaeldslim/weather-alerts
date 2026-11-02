@@ -1,10 +1,3 @@
-function getDeviceCalendarDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 export function getTimezoneCalendarDateKey(timezone: string, date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
@@ -66,20 +59,27 @@ export function parseOpenMeteoLocalTime(isoLocal: string, timeZone: string): Dat
   return new Date(utcGuess);
 }
 
-/** City local clock; adds a date prefix when their calendar day differs from the device. */
+/** Milliseconds until the next `:00` second in `timezone` (for minute-aligned clock ticks). */
+export function msUntilNextMinuteInTimezone(timezone: string, date = new Date()): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      second: 'numeric',
+    })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value])
+  );
+  const second = Number(parts.second ?? 0);
+  return Math.max(0, (60 - second) * 1000 - date.getMilliseconds());
+}
+
+/** City local date and clock in the city's timezone (e.g. `Nov 1 · 3:45 PM`). */
 export function formatLocalTime(timezone: string, date = new Date()): string {
   const time = new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     timeZone: timezone,
   }).format(date);
-
-  const cityDate = getTimezoneCalendarDateKey(timezone, date);
-  const deviceDate = getDeviceCalendarDateKey(date);
-
-  if (cityDate === deviceDate) {
-    return time;
-  }
 
   const dateLabel = new Intl.DateTimeFormat('en-US', {
     month: 'short',
