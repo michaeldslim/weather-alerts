@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -14,22 +15,28 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { searchCities } from '../services/geocodingApi';
-import { formatLocationLabel, LocationResult } from '../types/location';
+import { formatLocationLabel, LocationResult, SavedCity } from '../types/location';
 import { WeatherTheme } from '../utils/weatherTheme';
 
 interface LocationSearchModalProps {
   visible: boolean;
   theme: WeatherTheme;
+  savedCities: SavedCity[];
   onClose: () => void;
-  onSelect: (location: LocationResult) => void;
+  onSelect: (location: LocationResult, saveToList: boolean) => void;
+  onSelectSavedCity: (city: SavedCity) => void;
+  onRemoveSavedCity: (cityId: number) => void;
   onUseCurrentLocation: () => void;
 }
 
 export function LocationSearchModal({
   visible,
   theme,
+  savedCities,
   onClose,
   onSelect,
+  onSelectSavedCity,
+  onRemoveSavedCity,
   onUseCurrentLocation,
 }: LocationSearchModalProps) {
   const [query, setQuery] = useState('');
@@ -69,8 +76,35 @@ export function LocationSearchModal({
   }, [query, visible]);
 
   const handleSelect = (location: LocationResult) => {
-    onSelect(location);
-    onClose();
+    const savedMatch = savedCities.find((city) => city.id === location.id);
+    if (savedMatch) {
+      onSelectSavedCity(savedMatch);
+      onClose();
+      return;
+    }
+
+    const label = formatLocationLabel(location);
+    Alert.alert(
+      'Save this city?',
+      `${label} can be saved for quick access when you swipe between cities (up to 5).`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'View once',
+          onPress: () => {
+            onSelect(location, false);
+            onClose();
+          },
+        },
+        {
+          text: 'Save',
+          onPress: () => {
+            onSelect(location, true);
+            onClose();
+          },
+        },
+      ]
+    );
   };
 
   const handleUseCurrentLocation = () => {
@@ -83,6 +117,7 @@ export function LocationSearchModal({
       <SafeAreaProvider>
         <LocationSearchSheet
           theme={theme}
+          savedCities={savedCities}
           query={query}
           setQuery={setQuery}
           results={results}
@@ -90,6 +125,11 @@ export function LocationSearchModal({
           searchError={searchError}
           onClose={onClose}
           onSelect={handleSelect}
+          onSelectSavedCity={(city) => {
+            onSelectSavedCity(city);
+            onClose();
+          }}
+          onRemoveSavedCity={onRemoveSavedCity}
           onUseCurrentLocation={handleUseCurrentLocation}
         />
       </SafeAreaProvider>
@@ -99,18 +139,22 @@ export function LocationSearchModal({
 
 interface LocationSearchSheetProps {
   theme: WeatherTheme;
+  savedCities: SavedCity[];
   query: string;
   setQuery: (value: string) => void;
   results: LocationResult[];
   searching: boolean;
   searchError: string | null;
   onClose: () => void;
-  onSelect: (location: LocationResult) => void;
+  onSelect: (location: LocationResult, saveToList: boolean) => void;
+  onSelectSavedCity: (city: SavedCity) => void;
+  onRemoveSavedCity: (cityId: number) => void;
   onUseCurrentLocation: () => void;
 }
 
 function LocationSearchSheet({
   theme,
+  savedCities,
   query,
   setQuery,
   results,
@@ -118,6 +162,8 @@ function LocationSearchSheet({
   searchError,
   onClose,
   onSelect,
+  onSelectSavedCity,
+  onRemoveSavedCity,
   onUseCurrentLocation,
 }: LocationSearchSheetProps) {
   const insets = useSafeAreaInsets();
@@ -140,7 +186,23 @@ function LocationSearchSheet({
     };
   }, []);
 
-  const listMaxHeight = keyboardHeight > 0 ? 140 : 260;
+  const listMaxHeight = keyboardHeight > 0 ? 140 : 220;
+  const showSavedCities = savedCities.length > 0 && query.trim().length < 2;
+
+  const handleRemoveSaved = (city: SavedCity) => {
+    Alert.alert(
+      'Remove saved city?',
+      `Remove ${city.label} from your saved cities?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => onRemoveSavedCity(city.id),
+        },
+      ]
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -174,6 +236,37 @@ function LocationSearchSheet({
             autoCorrect={false}
             autoCapitalize="words"
           />
+
+          {showSavedCities && (
+            <View style={styles.savedSection}>
+              <Text style={[styles.savedSectionTitle, { color: theme.text }]}>Saved cities</Text>
+              {savedCities.map((city) => (
+                <View
+                  key={city.id}
+                  style={[styles.savedRow, { borderBottomColor: 'rgba(255,255,255,0.15)' }]}
+                >
+                  <Pressable
+                    style={styles.savedRowMain}
+                    onPress={() => onSelectSavedCity(city)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Switch to ${city.label}`}
+                  >
+                    <Text style={[styles.resultName, { color: theme.text }]} numberOfLines={1}>
+                      {city.label}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => handleRemoveSaved(city)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${city.label}`}
+                  >
+                    <Text style={[styles.removeText, { color: theme.text }]}>Remove</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
 
           {searching && (
             <ActivityIndicator style={styles.loader} color={theme.text} />
@@ -279,6 +372,31 @@ const styles = StyleSheet.create({
   resultMeta: {
     fontSize: 13,
     opacity: 0.75,
+  },
+  savedSection: {
+    marginBottom: 8,
+    maxHeight: 200,
+  },
+  savedSectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    opacity: 0.75,
+    marginBottom: 4,
+  },
+  savedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  savedRowMain: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingRight: 12,
+  },
+  removeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    opacity: 0.85,
   },
   currentLocationButton: {
     marginTop: 16,
