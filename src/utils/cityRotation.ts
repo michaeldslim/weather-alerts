@@ -5,7 +5,7 @@ import {
   savedCityToManualSource,
 } from '../types/location';
 
-/** Fixed swipe order: GPS, optional one-off manual city, then saved cities (newest first). */
+/** Fixed swipe order: GPS, optional one-off manual city, then saved cities (list order). */
 export function buildCityRotation(
   savedCities: SavedCity[],
   activeSource?: LocationSource

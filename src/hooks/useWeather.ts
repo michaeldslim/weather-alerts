@@ -76,6 +76,7 @@ interface UseWeatherResult {
   selectLocation: (location: LocationResult, saveToList: boolean) => Promise<void>;
   selectSavedCity: (city: SavedCity) => Promise<void>;
   removeSavedCity: (cityId: number) => Promise<void>;
+  reorderSavedCities: (cities: SavedCity[]) => void;
   useCurrentLocation: () => Promise<void>;
   goToCityAtIndex: (index: number) => Promise<void>;
 }
@@ -372,6 +373,13 @@ export function useWeather(): UseWeatherResult {
     [applyLocationSource]
   );
 
+  const reorderSavedCitiesOrder = useCallback(
+    (cities: SavedCity[]) => {
+      persistSavedCities(cities);
+    },
+    [persistSavedCities]
+  );
+
   const removeSavedCity = useCallback(
     async (cityId: number) => {
       const removed = savedCitiesRef.current.find((city) => city.id === cityId);
@@ -459,6 +467,7 @@ export function useWeather(): UseWeatherResult {
     selectLocation,
     selectSavedCity,
     removeSavedCity,
+    reorderSavedCities: reorderSavedCitiesOrder,
     useCurrentLocation,
     goToCityAtIndex,
   };
