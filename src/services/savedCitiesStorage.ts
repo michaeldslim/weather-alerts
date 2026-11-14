@@ -56,3 +56,24 @@ export function upsertSavedCity(cities: SavedCity[], next: SavedCity): SavedCity
 export function removeSavedCityById(cities: SavedCity[], cityId: number): SavedCity[] {
   return cities.filter((city) => city.id !== cityId);
 }
+
+export function reorderSavedCities(
+  cities: SavedCity[],
+  fromIndex: number,
+  toIndex: number
+): SavedCity[] {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= cities.length ||
+    toIndex >= cities.length
+  ) {
+    return cities;
+  }
+
+  const next = [...cities];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+}
