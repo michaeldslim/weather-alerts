@@ -20,7 +20,6 @@ export function parseOpenMeteoLocalTime(isoLocal: string, timeZone: string): Dat
   }
 
   const [, year, month, day, hour, minute] = match;
-  const desired = `${year}-${month}-${day}T${hour}:${minute}`;
 
   let utcGuess = Date.UTC(
     Number(year),
@@ -40,20 +39,50 @@ export function parseOpenMeteoLocalTime(isoLocal: string, timeZone: string): Dat
     hour12: false,
   });
 
-  for (let attempt = 0; attempt < 4; attempt++) {
+  const desiredYear = Number(year);
+  const desiredMonth = Number(month);
+  const desiredDay = Number(day);
+  const desiredHour = Number(hour);
+  const desiredMinute = Number(minute);
+  const desiredLocalMs = Date.UTC(
+    desiredYear,
+    desiredMonth - 1,
+    desiredDay,
+    desiredHour,
+    desiredMinute
+  );
+
+  for (let attempt = 0; attempt < 6; attempt++) {
     const parts = Object.fromEntries(
       formatter.formatToParts(new Date(utcGuess)).map((part) => [part.type, part.value])
     );
-    const formatted = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+    const formattedYear = Number(parts.year);
+    const formattedMonth = Number(parts.month);
+    const formattedDay = Number(parts.day);
+    let formattedHour = Number(parts.hour);
+    if (formattedHour === 24) {
+      formattedHour = 0;
+    }
+    const formattedMinute = Number(parts.minute);
 
-    if (formatted === desired) {
+    if (
+      formattedYear === desiredYear &&
+      formattedMonth === desiredMonth &&
+      formattedDay === desiredDay &&
+      formattedHour === desiredHour &&
+      formattedMinute === desiredMinute
+    ) {
       return new Date(utcGuess);
     }
 
-    const formattedMinutes =
-      Number(parts.hour) * 60 + Number(parts.minute);
-    const desiredMinutes = Number(hour) * 60 + Number(minute);
-    utcGuess -= (formattedMinutes - desiredMinutes) * 60_000;
+    const formattedLocalMs = Date.UTC(
+      formattedYear,
+      formattedMonth - 1,
+      formattedDay,
+      formattedHour,
+      formattedMinute
+    );
+    utcGuess -= formattedLocalMs - desiredLocalMs;
   }
 
   return new Date(utcGuess);
