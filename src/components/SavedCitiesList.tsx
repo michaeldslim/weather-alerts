@@ -2,17 +2,68 @@ import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  LayoutAnimation,
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
+  UIManager,
   View,
 } from 'react-native';
 import { reorderSavedCities } from '../services/savedCitiesStorage';
 import { SavedCity } from '../types/location';
 import { WeatherTheme } from '../utils/weatherTheme';
 
-const ROW_HEIGHT = 49;
+const ROW_HEIGHT = 48;
+/** Swap with neighbor after dragging this fraction of a row (lower = less finger travel). */
+const SWAP_THRESHOLD = ROW_HEIGHT * 0.34;
+
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+function citiesOrderKey(cities: SavedCity[]): string {
+  return cities.map((city) => city.id).join(',');
+}
+
+function applyAdjacentSwaps(
+  cities: SavedCity[],
+  draggingId: number,
+  gestureDy: number
+): { cities: SavedCity[]; visualDy: number } {
+  let list = cities;
+  let from = list.findIndex((city) => city.id === draggingId);
+  if (from < 0) {
+    return { cities: list, visualDy: gestureDy };
+  }
+
+  let visualDy = gestureDy;
+  let changed = false;
+
+  while (visualDy > SWAP_THRESHOLD && from < list.length - 1) {
+    list = reorderSavedCities(list, from, from + 1);
+    visualDy -= ROW_HEIGHT;
+    from += 1;
+    changed = true;
+  }
+
+  while (visualDy < -SWAP_THRESHOLD && from > 0) {
+    list = reorderSavedCities(list, from, from - 1);
+    visualDy += ROW_HEIGHT;
+    from -= 1;
+    changed = true;
+  }
+
+  if (!changed) {
+    return { cities: list, visualDy };
+  }
+
+  return { cities: list, visualDy };
+}
 
 interface SavedCitiesListProps {
   cities: SavedCity[];
@@ -51,7 +102,8 @@ function SavedCityRow({
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        Math.abs(gesture.dy) > 2 || Math.abs(gesture.dx) < Math.abs(gesture.dy),
       onPanResponderGrant: () => {
         dragHandlersRef.current.onDragGrant();
       },
@@ -75,8 +127,12 @@ function SavedCityRow({
         isDragging && {
           transform: [{ translateY: dragOffset }],
           zIndex: 2,
-          elevation: 2,
-          backgroundColor: 'rgba(0,0,0,0.12)',
+          elevation: 4,
+          shadowColor: '#000',
+          shadowOpacity: 0.18,
+          shadowRadius: 6,
+          shadowOffset: { width: 0, height: 3 },
+          backgroundColor: 'rgba(0,0,0,0.15)',
         },
       ]}
     >
@@ -92,6 +148,7 @@ function SavedCityRow({
       <Pressable
         style={styles.savedRowMain}
         onPress={onSelect}
+        disabled={isDragging}
         accessibilityRole="button"
         accessibilityLabel={`Switch to ${city.label}`}
       >
@@ -101,6 +158,7 @@ function SavedCityRow({
       </Pressable>
       <Pressable
         onPress={onRemove}
+        disabled={isDragging}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={`Remove ${city.label}`}
@@ -123,6 +181,7 @@ export function SavedCitiesList({
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const draggingIdRef = useRef<number | null>(null);
   const dragOffset = useRef(new Animated.Value(0)).current;
+  const orderKeyDuringDragRef = useRef('');
 
   useEffect(() => {
     orderedRef.current = ordered;
@@ -138,6 +197,7 @@ export function SavedCitiesList({
   const beginDrag = (cityId: number) => {
     draggingIdRef.current = cityId;
     setDraggingId(cityId);
+    orderKeyDuringDragRef.current = citiesOrderKey(orderedRef.current);
     dragOffset.setValue(0);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -148,32 +208,50 @@ export function SavedCitiesList({
       return;
     }
 
-    dragOffset.setValue(dy);
-    setOrdered((prev) => {
-      const from = prev.findIndex((city) => city.id === activeId);
-      if (from < 0) {
-        return prev;
-      }
+    const { cities: nextList, visualDy } = applyAdjacentSwaps(
+      orderedRef.current,
+      activeId,
+      dy
+    );
 
-      const target = Math.max(
-        0,
-        Math.min(prev.length - 1, from + Math.round(dy / ROW_HEIGHT))
-      );
-      if (from === target) {
-        return prev;
-      }
+    dragOffset.setValue(visualDy);
 
-      return reorderSavedCities(prev, from, target);
-    });
+    const nextKey = citiesOrderKey(nextList);
+    if (nextKey !== orderKeyDuringDragRef.current) {
+      orderKeyDuringDragRef.current = nextKey;
+      LayoutAnimation.configureNext({
+        duration: 180,
+        create: { type: 'easeInEaseOut', property: 'opacity' },
+        update: { type: 'easeInEaseOut' },
+        delete: { type: 'easeInEaseOut', property: 'opacity' },
+      });
+      setOrdered(nextList);
+      void Haptics.selectionAsync();
+    }
   };
 
   const endDrag = () => {
-    if (draggingIdRef.current !== null) {
-      onReorder(orderedRef.current);
+    if (draggingIdRef.current === null) {
+      return;
     }
-    draggingIdRef.current = null;
-    setDraggingId(null);
-    dragOffset.setValue(0);
+
+    const finalize = () => {
+      onReorder(orderedRef.current);
+      draggingIdRef.current = null;
+      setDraggingId(null);
+      dragOffset.setValue(0);
+    };
+
+    Animated.spring(dragOffset, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 280,
+      friction: 22,
+    }).start(({ finished }) => {
+      if (finished) {
+        finalize();
+      }
+    });
   };
 
   if (ordered.length === 0) {
@@ -184,7 +262,7 @@ export function SavedCitiesList({
     <View style={styles.savedSection}>
       <Text style={[styles.savedSectionTitle, { color: theme.text }]}>Saved cities</Text>
       <Text style={[styles.savedSectionHint, { color: theme.text }]}>
-        Drag ≡ to reorder swipe order
+        Drag ≡ up or down to reorder
       </Text>
       {ordered.map((city) => (
         <SavedCityRow
@@ -224,13 +302,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    minHeight: ROW_HEIGHT,
+    height: ROW_HEIGHT,
   },
   dragHandle: {
-    paddingVertical: 12,
+    height: ROW_HEIGHT,
+    minWidth: 36,
     paddingRight: 8,
     paddingLeft: 2,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   dragHandleIcon: {
     fontSize: 18,
@@ -239,13 +319,13 @@ const styles = StyleSheet.create({
   },
   savedRowMain: {
     flex: 1,
-    paddingVertical: 12,
+    height: ROW_HEIGHT,
+    justifyContent: 'center',
     paddingRight: 12,
   },
   resultName: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 2,
   },
   removeText: {
     fontSize: 14,
