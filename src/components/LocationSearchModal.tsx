@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { searchCities } from '../services/geocodingApi';
+import { SavedCitiesList } from './SavedCitiesList';
 import { formatLocationLabel, LocationResult, SavedCity } from '../types/location';
 import { WeatherTheme } from '../utils/weatherTheme';
 
@@ -26,6 +27,7 @@ interface LocationSearchModalProps {
   onSelect: (location: LocationResult, saveToList: boolean) => void;
   onSelectSavedCity: (city: SavedCity) => void;
   onRemoveSavedCity: (cityId: number) => void;
+  onReorderSavedCities: (cities: SavedCity[]) => void;
   onUseCurrentLocation: () => void;
 }
 
@@ -37,6 +39,7 @@ export function LocationSearchModal({
   onSelect,
   onSelectSavedCity,
   onRemoveSavedCity,
+  onReorderSavedCities,
   onUseCurrentLocation,
 }: LocationSearchModalProps) {
   const [query, setQuery] = useState('');
@@ -130,6 +133,7 @@ export function LocationSearchModal({
             onClose();
           }}
           onRemoveSavedCity={onRemoveSavedCity}
+          onReorderSavedCities={onReorderSavedCities}
           onUseCurrentLocation={handleUseCurrentLocation}
         />
       </SafeAreaProvider>
@@ -146,9 +150,10 @@ interface LocationSearchSheetProps {
   searching: boolean;
   searchError: string | null;
   onClose: () => void;
-  onSelect: (location: LocationResult, saveToList: boolean) => void;
+  onSelect: (location: LocationResult) => void;
   onSelectSavedCity: (city: SavedCity) => void;
   onRemoveSavedCity: (cityId: number) => void;
+  onReorderSavedCities: (cities: SavedCity[]) => void;
   onUseCurrentLocation: () => void;
 }
 
@@ -164,6 +169,7 @@ function LocationSearchSheet({
   onSelect,
   onSelectSavedCity,
   onRemoveSavedCity,
+  onReorderSavedCities,
   onUseCurrentLocation,
 }: LocationSearchSheetProps) {
   const insets = useSafeAreaInsets();
@@ -238,34 +244,13 @@ function LocationSearchSheet({
           />
 
           {showSavedCities && (
-            <View style={styles.savedSection}>
-              <Text style={[styles.savedSectionTitle, { color: theme.text }]}>Saved cities</Text>
-              {savedCities.map((city) => (
-                <View
-                  key={city.id}
-                  style={[styles.savedRow, { borderBottomColor: 'rgba(255,255,255,0.15)' }]}
-                >
-                  <Pressable
-                    style={styles.savedRowMain}
-                    onPress={() => onSelectSavedCity(city)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Switch to ${city.label}`}
-                  >
-                    <Text style={[styles.resultName, { color: theme.text }]} numberOfLines={1}>
-                      {city.label}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => handleRemoveSaved(city)}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove ${city.label}`}
-                  >
-                    <Text style={[styles.removeText, { color: theme.text }]}>Remove</Text>
-                  </Pressable>
-                </View>
-              ))}
-            </View>
+            <SavedCitiesList
+              cities={savedCities}
+              theme={theme}
+              onSelectCity={onSelectSavedCity}
+              onRemoveCity={handleRemoveSaved}
+              onReorder={onReorderSavedCities}
+            />
           )}
 
           {searching && (
@@ -372,31 +357,6 @@ const styles = StyleSheet.create({
   resultMeta: {
     fontSize: 13,
     opacity: 0.75,
-  },
-  savedSection: {
-    marginBottom: 8,
-    maxHeight: 200,
-  },
-  savedSectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    opacity: 0.75,
-    marginBottom: 4,
-  },
-  savedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  savedRowMain: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingRight: 12,
-  },
-  removeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    opacity: 0.85,
   },
   currentLocationButton: {
     marginTop: 16,

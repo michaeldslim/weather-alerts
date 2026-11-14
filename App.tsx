@@ -36,6 +36,7 @@ export default function App() {
     selectLocation,
     selectSavedCity,
     removeSavedCity,
+    reorderSavedCities,
     savedCities,
     useCurrentLocation,
     cityRotation,
@@ -180,6 +181,7 @@ export default function App() {
           onRemoveSavedCity={(cityId) => {
             void removeSavedCity(cityId);
           }}
+          onReorderSavedCities={reorderSavedCities}
           onUseCurrentLocation={useCurrentLocation}
         />
         <StatusBar style={statusBarStyle} />
